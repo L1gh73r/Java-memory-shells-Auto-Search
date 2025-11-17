@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  workflow-hub:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - JAVA_BASE_DIR=/app/java-projects
+      - CSV_BASE_DIR=/app/csv-data
+      - JSON_BASE_DIR=/app/json-data
+    volumes:
+      - ${JAVA_BASE_DIR:-./java-projects}:/app/java-projects:ro
+      - ${CSV_BASE_DIR:-./csv-data}:/app/csv-data:ro
+      - ${JSON_BASE_DIR:-./json-data}:/app/json-data:ro
+    restart: unless-stopped

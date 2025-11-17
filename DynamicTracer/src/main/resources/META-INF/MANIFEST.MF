@@ -1,0 +1,5 @@
+Manifest-Version: 1.0
+Premain-Class: com.dynamictracer.Agent
+Agent-Class: com.dynamictracer.Agent
+Can-Redefine-Classes: true
+Can-Retransform-Classes: true

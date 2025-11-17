@@ -1,0 +1,14 @@
+# DynamicTracer 配置
+# 规则按优先级顺序应用（数字越大，优先级越高，越先执行）
+
+rules:
+  # 断点规则 - 支持自定义断点和代码执行
+  - targetClass: "*"
+    ruleClass: com.dynamictracer.rule.BreakpointRule
+    priority: 50
+    enabled: true
+    parameters:
+      configFile: "breakpoint-config.json"
+      enableRemoteControl: false
+
+  # 在这里添加更多规则

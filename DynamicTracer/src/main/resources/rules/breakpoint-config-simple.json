@@ -1,0 +1,49 @@
+{
+  "breakpoints": [
+    {
+      "id": "josearcher_search",
+      "enabled": true,
+      "targetClass": "org.springframework.context.event.SimpleApplicationEventMulticaster",
+      "targetMethod": "multicastEvent",
+      "breakpointType": "BEFORE",
+      "conditionType": "ALWAYS",
+      "codeFile": "breakpoint-codes/josearcher-search.java",
+      "pauseExecution": true,
+      "pauseDuration": 2000,
+      "logToDatabase": true
+    },
+    {
+      "id": "simple_template",
+      "enabled": false,
+      "targetClass": ".*Service.*",
+      "targetMethod": ".*",
+      "breakpointType": "BEFORE",
+      "conditionType": "ALWAYS",
+      "codeTemplate": "SIMPLE_LOG",
+      "codeParams": {
+        "message": "Service方法调用监控"
+      },
+      "pauseExecution": false,
+      "pauseDuration": 0,
+      "logToDatabase": true
+    },
+    {
+      "id": "direct_code",
+      "enabled": false,
+      "targetClass": ".*Controller.*",
+      "targetMethod": ".*",
+      "breakpointType": "BEFORE",
+      "conditionType": "ALWAYS",
+      "customCode": "System.out.println(\"Controller方法调用: \" + Thread.currentThread().getName());",
+      "pauseExecution": false,
+      "pauseDuration": 0,
+      "logToDatabase": true
+    }
+  ],
+  "globalSettings": {
+    "maxConcurrentBreakpoints": 5,
+    "defaultTimeout": 30000,
+    "enableRemoteControl": false,
+    "logLevel": "INFO"
+  }
+}

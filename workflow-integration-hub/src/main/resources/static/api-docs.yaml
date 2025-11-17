@@ -1,0 +1,225 @@
+openapi: 3.0.3
+info:
+  title: Workflow Integration Hub API
+  version: 1.0.0
+paths:
+  /api/read-java-file:
+    post:
+      summary: 根据包名+类名读取Java文件
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JavaFileRequest'
+      responses:
+        '200':
+          description: 成功
+        '400':
+          description: 参数错误
+        '404':
+          description: 未找到文件
+  /api/read-csv-data:
+    post:
+      summary: 分批读取CSV数据
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CsvDataRequest'
+      responses:
+        '200':
+          description: 成功
+        '400':
+          description: 参数错误
+        '404':
+          description: 未找到文件
+  /api/read-json-data:
+    post:
+      summary: 读取JSON文件
+      description: 读取指定路径的JSON文件。支持filePath（驼峰命名）和file_path（下划线命名）两种参数格式。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsonDataRequest'
+      responses:
+        '200':
+          description: 成功
+        '400':
+          description: 参数错误
+        '404':
+          description: 未找到文件
+  /api/memory-search:
+    post:
+      summary: 执行内存搜索
+      description: 根据目标类和方法动态修改断点配置，执行Java应用进行内存搜索
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemorySearchRequest'
+      responses:
+        '200':
+          description: 搜索成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemorySearchResponse'
+        '400':
+          description: 参数错误
+        '500':
+          description: 执行错误
+  /health:
+    get:
+      summary: 健康检查
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    JavaFileRequest:
+      type: object
+      properties:
+        packageClassName:
+          type: string
+          example: com.example.service.UserService
+    CsvDataRequest:
+      type: object
+      properties:
+        filePath:
+          type: string
+          example: memory.csv
+        batchSize:
+          type: integer
+          example: 50
+        currentBatch:
+          type: integer
+          example: 0
+    JsonDataRequest:
+      type: object
+      properties:
+        filePath:
+          type: string
+          example: data.json
+          description: 文件路径（驼峰命名格式）
+        file_path:
+          type: string
+          example: data.json
+          description: 文件路径（下划线命名格式，与filePath二选一）
+    MemorySearchRequest:
+      type: object
+      required:
+        - target_class
+        - target_method
+      properties:
+        target_class:
+          type: string
+          example: org.springframework.context.event.SimpleApplicationEventMulticaster
+          description: 目标类的完整包名
+        target_method:
+          type: string
+          example: multicastEvent
+          description: 目标方法名
+        search_id:
+          type: string
+          example: bp_search
+          description: 搜索标识符，默认为bp_search
+        timeout_seconds:
+          type: integer
+          example: 60
+          description: 总执行超时时间（秒），默认60秒
+        startup_timeout_seconds:
+          type: integer
+          example: 30
+          description: 应用启动超时时间（秒），默认30秒
+        trigger_url:
+          type: string
+          example: http://localhost:8080/a.css
+          description: 触发请求的URL，默认为/a.css端点
+        trigger_method:
+          type: string
+          example: GET
+          description: 触发请求的HTTP方法，默认GET
+        trigger_body:
+          type: string
+          example: '{"action": "test"}'
+          description: 触发请求的请求体（可选）
+        max_trigger_retries:
+          type: integer
+          example: 3
+          description: 最大触发重试次数，默认3次
+        trigger_delay_seconds:
+          type: integer
+          example: 2
+          description: 触发请求后等待时间（秒），默认2秒
+        startup_detection_strategy:
+          type: string
+          example: AUTO
+          enum: [AUTO, PORT, LOG_PATTERN, HTTP_CHECK, FIXED_DELAY]
+          description: 启动检测策略，默认AUTO
+        custom_log_pattern:
+          type: string
+          example: ".*Application ready.*"
+          description: 自定义日志模式（LOG_PATTERN策略使用）
+        target_port:
+          type: integer
+          example: 8080
+          description: 目标端口（PORT策略使用）
+        health_check_url:
+          type: string
+          example: "http://localhost:8080/actuator/health"
+          description: 健康检查URL（HTTP_CHECK策略使用）
+        fixed_startup_delay_seconds:
+          type: integer
+          example: 10
+          description: 固定启动延迟时间（秒），默认10秒
+    MemorySearchResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: 操作是否成功
+        error:
+          type: string
+          description: 错误信息（如果有）
+        target_class:
+          type: string
+          description: 目标类名
+        target_method:
+          type: string
+          description: 目标方法名
+        search_id:
+          type: string
+          description: 搜索标识符
+        execution_time_ms:
+          type: integer
+          description: 执行时间（毫秒）
+        result_file_path:
+          type: string
+          description: 结果文件路径
+        search_results:
+          type: array
+          description: 搜索结果列表
+          items:
+            type: object
+            properties:
+              tag:
+                type: string
+              field_name:
+                type: string
+              class:
+                type: string
+              depth:
+                type: integer
+              chain:
+                type: string
+        result_count:
+          type: integer
+          description: 结果数量
+        config_updated:
+          type: boolean
+          description: 配置是否已更新

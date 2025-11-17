@@ -1,0 +1,20 @@
+# 流量转发配置文件
+# 目标队伍服务器，按需修改IP和端口
+target_urls:
+  - "http://www.baidu.com"
+
+# 是否转发所有流量（true）或只转发check流量（false）
+forward_all_traffic: true
+
+# 是否转发check流量（通常设为true）
+forward_check_traffic: true
+
+# check流量特征（用于识别check请求）
+check_patterns:
+  - user_agent_contains: "check"
+  - remote_addr_starts_with: "10.0."
+  - remote_addr_equals: "127.0.0.1"
+  - uri_contains: "/check"
+
+# 转发策略（轮询/随机/健康优先）
+strategy: "round_robin"

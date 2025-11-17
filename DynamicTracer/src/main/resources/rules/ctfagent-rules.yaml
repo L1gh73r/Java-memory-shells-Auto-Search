@@ -1,0 +1,25 @@
+# CTF Agent 配置
+# 规则按优先级顺序应用（数字越大，优先级越高，越先执行）
+
+rules:
+  - targetClass: javax.servlet.http.HttpServlet
+    ruleClass: com.dynamictracer.rule.RequestForwarderRule
+    priority: 30
+    enabled: true
+    parameters:
+      forwardAllTraffic: false
+      forwardCheckTraffic: true
+
+  - targetClass: javax.servlet.http.HttpServlet
+    ruleClass: com.dynamictracer.rule.SpringBootFilterMem
+    priority: 20
+    enabled: true
+    parameters:
+      logFile: /tmp/request.log
+
+  - targetClass: javax.servlet.http.HttpServlet
+    ruleClass: com.dynamictracer.rule.SaveRequestsDataRule
+    priority: 10
+    enabled: true
+
+  # 在这里添加更多规则

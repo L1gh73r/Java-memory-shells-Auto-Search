@@ -1,0 +1,107 @@
+{
+  "breakpoints": [
+    {
+      "id": "test",
+      "enabled": true,
+      "targetClass": "org.springframework.context.event.SimpleApplicationEventMulticaster",
+      "targetMethod": "multicastEvent",
+      "methodSignature": "",
+      "breakpointType": "BEFORE",
+      "conditionType": "ALWAYS",
+      "conditionExpression": "",
+      "codeTemplate": "JOSEARCHER_SEARCH",
+      "codeParams": {
+        "searchType": "SimpleApplicationEventMulticaster",
+        "blacklistType": "java.io.File",
+        "maxDepth": "20",
+        "reportPath": "/tmp"
+      },
+      "pauseExecution": true,
+      "pauseDuration": 1000,
+      "logToDatabase": true
+    }
+  ],
+  "codeTemplates": {
+    "JOSEARCHER_SEARCH": {
+      "description": "使用josearcher进行对象搜索",
+      "imports": [
+        "java.util.List",
+        "java.util.ArrayList",
+        "me.gv7.tools.josearcher.entity.Keyword",
+        "me.gv7.tools.josearcher.entity.Blacklist",
+        "me.gv7.tools.josearcher.searcher.SearchRequstByBFS"
+      ],
+      "code": [
+        "try {",
+        "  System.out.println(\"🔍 开始josearcher搜索...\");",
+        "  List<me.gv7.tools.josearcher.entity.Keyword> keys = new ArrayList<>();",
+        "  keys.add(new me.gv7.tools.josearcher.entity.Keyword.Builder().setField_type(\"{{searchType}}\").build());",
+        "  List<me.gv7.tools.josearcher.entity.Blacklist> blacklists = new ArrayList<>();",
+        "  blacklists.add(new me.gv7.tools.josearcher.entity.Blacklist.Builder().setField_type(\"{{blacklistType}}\").build());",
+        "  me.gv7.tools.josearcher.searcher.SearchRequstByBFS searcher = new me.gv7.tools.josearcher.searcher.SearchRequstByBFS(Thread.currentThread(), keys);",
+        "  searcher.setBlacklists(blacklists);",
+        "  searcher.setIs_debug(true);",
+        "  searcher.setMax_search_depth({{maxDepth}});",
+        "  searcher.setReport_save_path(\"{{reportPath}}\");",
+        "  searcher.searchObject();",
+        "  System.out.println(\"✅ josearcher搜索完成\");",
+        "} catch (Exception e) {",
+        "  System.err.println(\"❌ josearcher搜索失败: \" + e.getMessage());",
+        "}"
+      ]
+    },
+    "SIMPLE_LOG": {
+      "description": "简单的日志输出",
+      "imports": [],
+      "code": [
+        "System.out.println(\"📋 {{message}} - 类: \" + \"{{className}}\" + \", 方法: \" + \"{{methodName}}\");",
+        "System.out.println(\"🧵 线程: \" + Thread.currentThread().getName());"
+      ]
+    },
+    "MEMORY_MONITOR": {
+      "description": "内存使用监控",
+      "imports": [],
+      "code": [
+        "Runtime runtime = Runtime.getRuntime();",
+        "long totalMemory = runtime.totalMemory();",
+        "long freeMemory = runtime.freeMemory();",
+        "long usedMemory = totalMemory - freeMemory;",
+        "System.out.println(\"💾 内存使用: \" + (usedMemory / 1024 / 1024) + \"MB / \" + (totalMemory / 1024 / 1024) + \"MB\");"
+      ]
+    },
+    "PARAMETER_DUMP": {
+      "description": "参数转储",
+      "imports": ["java.util.Arrays"],
+      "code": [
+        "System.out.println(\"📋 方法参数: \" + Arrays.toString(args));",
+        "for (int i = 0; i < args.length; i++) {",
+        "  if (args[i] != null) {",
+        "    System.out.println(\"  参数[\" + i + \"]: \" + args[i].getClass().getName() + \" = \" + args[i]);",
+        "  } else {",
+        "    System.out.println(\"  参数[\" + i + \"]: null\");",
+        "  }",
+        "}"
+      ]
+    },
+    "STACK_TRACE": {
+      "description": "堆栈跟踪",
+      "imports": [],
+      "code": [
+        "StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();",
+        "System.out.println(\"📚 调用堆栈:\");",
+        "for (int i = 0; i < Math.min(stackTrace.length, 5); i++) {",
+        "  System.out.println(\"  \" + stackTrace[i]);",
+        "}"
+      ]
+    }
+  },
+  "globalSettings": {
+    "maxConcurrentBreakpoints": 10,
+    "defaultTimeout": 30000,
+    "enableRemoteControl": false,
+    "remoteControlPort": 8888,
+    "logLevel": "INFO",
+    "enableCodeTemplates": true,
+    "externalCodeDirectory": "breakpoint-codes"
+  }
+}

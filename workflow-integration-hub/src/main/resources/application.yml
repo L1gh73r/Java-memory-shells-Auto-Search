@@ -1,0 +1,44 @@
+server:
+  port: 7781
+
+spring:
+  application:
+    name: workflow-integration-hub
+  
+  jackson:
+    default-property-inclusion: non_null
+    date-format: yyyy-MM-dd HH:mm:ss
+
+# 业务配置 (对应Python中的环境变量)
+workflow:
+  data:
+    java-base-dir: ${JAVA_BASE_DIR:/Users/yulate/data/work/rasp/benchmark/druid_filter_mem/src/main/external-deps}
+    csv-base-dir: ${CSV_BASE_DIR:/Users/yulate/data/staticAnalysis/memory-find/dify-memory-shell-plugin/csv-data}
+    json-base-dir: ${JSON_BASE_DIR:/Users/yulate/data/staticAnalysis/memory-find/dify-memory-shell-plugin/json-data}
+  
+  csv:
+    default-batch-size: 50
+    max-batch-size: 1000
+  
+  java-file:
+    common-source-dirs:
+      - "src/main/java"
+      - "src/java"
+      - "src"
+      - "java"
+      - "."
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    com.yourcompany.workflow: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"

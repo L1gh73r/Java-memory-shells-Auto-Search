@@ -1,0 +1,6 @@
+{
+  "targetClass": "org.springframework.context.event.SimpleApplicationEventMulticaster",
+  "targetMethod": "multicastEvent",
+  "id": "memory_shell_injection",
+  "codeFile": "breakpoint-codes/memory-shell-injection.java"
+}
