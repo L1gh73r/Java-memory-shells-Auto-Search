@@ -1,0 +1,21 @@
+version: "3.9"
+
+services:
+  codeql-runner:
+    build:
+      context: ./SAST
+      dockerfile: codeql-runner/Dockerfile
+    container_name: showmaker-codeql-runner
+    # 默认示例：分析 benchmark 目录下的 druid_filter_mem Jar，
+    # 输出结果到项目内的 SAST/codeql-output 目录
+    command: ["/input/druid_filter_mem-0.0.1-SNAPSHOT.jar", "/output"]
+    volumes:
+      # 挂载待分析的 Jar 目录
+      - ./benchmark:/input:ro
+      # 挂载结果输出目录
+      - ./SAST/codeql-output:/output
+      # 持久化 CodeQL 数据库，便于复用
+      - ./SAST/codeql-databases:/opt/databases
+    stdin_open: true
+    tty: true
+
