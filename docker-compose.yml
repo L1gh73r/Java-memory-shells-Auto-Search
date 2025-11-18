@@ -16,6 +16,25 @@ services:
       - ./SAST/codeql-output:/output
       # 持久化 CodeQL 数据库，便于复用
       - ./SAST/codeql-databases:/opt/databases
+      # 持久化反编译输出（user-code + dependencies），供 workflow 使用
+      - ./SAST/codeql-work:/opt/work
+
+  workflow:
+    build:
+      context: ./workflow-integration-hub
+      dockerfile: Dockerfile
+    container_name: showmaker-workflow
+    environment:
+      # 告诉 workflow 反编译源码的根目录（容器内路径）
+      - JAVA_BASE_DIR=/opt/work/decompiled-with-deps
+    volumes:
+      # 共享反编译后的源码（与 codeql-runner 的 /opt/work 对应）
+      - ./SAST/codeql-work:/opt/work:ro
+      # 如需访问数据库或输出结果，也可以共享这些目录
+      - ./SAST/codeql-databases:/opt/databases:ro
+      - ./SAST/codeql-output:/opt/codeql-output:ro
+    ports:
+      - "7781:7781"
     stdin_open: true
     tty: true
 
