@@ -40,9 +40,10 @@ DB_DIR="${DB_ROOT}/${MODE}-${APP_NAME}"
 if [[ -f "${DB_DIR}/codeql-database.yml" ]]; then
   echo "[1/5] 检测到已存在的 CodeQL 数据库: ${DB_DIR}，跳过数据库构建。"
 else
-  echo "[1/5] 使用 JavaDecompiler 反编译 JAR（包含依赖）到: ${DECOMP_DIR}"
-  rm -rf "${WORK_DIR}"
-  mkdir -p "${DECOMP_DIR}" "${OUTPUT_DIR}"
+echo "[1/5] 使用 JavaDecompiler 反编译 JAR（包含依赖）到: ${DECOMP_DIR}"
+# 注意：/opt/work 是挂载卷的根目录，不能删除整个挂载点，只清理反编译输出子目录
+rm -rf "${DECOMP_DIR}"
+mkdir -p "${DECOMP_DIR}" "${OUTPUT_DIR}"
 
   java -jar /opt/tools/JavaDecompiler.jar \
     --input "${JAR_PATH}" \
