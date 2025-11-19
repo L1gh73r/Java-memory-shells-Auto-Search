@@ -36,7 +36,10 @@ public class MemorySearchService {
     // private WorkflowConfig config;  // 暂时未使用，后续可用于配置路径
     private static final String JOS_RESULT_DIR = "atools/agent/jos_result";
     private static final String DYNAMIC_TRACER_JAR = "atools/agent/DynamicTracer-1.0-SNAPSHOT.jar";
-    private static final String BREAKPOINT_CONFIG_FULL_PATH = "atools/agent/config/breakpoint-config.json";
+    // 基础配置文件（通常为只读的模板，由宿主机挂载进来）
+    private static final String BREAKPOINT_CONFIG_BASE_PATH = "atools/agent/config/breakpoint-config.json";
+    // 运行时配置文件，每次内存搜索时生成，传给 DynamicTracer 使用
+    private static final String BREAKPOINT_CONFIG_FULL_PATH = "atools/agent/config/breakpoint-config.runtime.json";
     private static final String TARGET_APP_JAR = "atools/benchmarks/druid_filter_mem-0.0.1-SNAPSHOT.jar";
 
     public MemorySearchResponse executeMemorySearch(MemorySearchRequest request) {
@@ -117,24 +120,36 @@ public class MemorySearchService {
         }
     }
 
+    /**
+     * 初始化运行时断点配置文件：
+     * - 如果存在基础模板（BREAKPOINT_CONFIG_BASE_PATH），先拷贝一份到运行时路径
+     * - 如果不存在，则后续直接覆盖写运行时文件
+     *
+     * 注意：基础模板通常是宿主机挂载进来的文件，尽量避免直接修改它，
+     * 因此我们始终只对 runtime 路径进行写入与删除操作。
+     */
     private void backupBreakpointConfig() throws IOException {
-        Path originalPath = Paths.get(BREAKPOINT_CONFIG_FULL_PATH);
-        Path backupPath = Paths.get(BREAKPOINT_CONFIG_FULL_PATH + ".backup");
-        
-        if (Files.exists(originalPath)) {
-            Files.copy(originalPath, backupPath, StandardCopyOption.REPLACE_EXISTING);
-            log.info("已备份断点配置文件到: {}", backupPath);
+        Path basePath = Paths.get(BREAKPOINT_CONFIG_BASE_PATH);
+        Path runtimePath = Paths.get(BREAKPOINT_CONFIG_FULL_PATH);
+
+        if (Files.exists(basePath)) {
+            Files.copy(basePath, runtimePath, StandardCopyOption.REPLACE_EXISTING);
+            log.info("已基于模板初始化运行时断点配置: {}", runtimePath);
+        } else {
+            log.info("未找到基础断点配置模板: {}，将直接写入运行时配置文件", basePath);
         }
     }
 
+    /**
+     * 清理运行时断点配置文件。
+     * 不再尝试覆盖基础模板文件，避免对宿主机挂载的只读文件进行写操作。
+     */
     private void restoreBreakpointConfig() throws IOException {
-        Path backupPath = Paths.get(BREAKPOINT_CONFIG_FULL_PATH + ".backup");
-        Path originalPath = Paths.get(BREAKPOINT_CONFIG_FULL_PATH);
-        
-        if (Files.exists(backupPath)) {
-            Files.copy(backupPath, originalPath, StandardCopyOption.REPLACE_EXISTING);
-            Files.deleteIfExists(backupPath);
-            log.info("已恢复断点配置文件");
+        Path runtimePath = Paths.get(BREAKPOINT_CONFIG_FULL_PATH);
+
+        if (Files.exists(runtimePath)) {
+            Files.deleteIfExists(runtimePath);
+            log.info("已删除运行时断点配置文件: {}", runtimePath);
         }
     }
 
@@ -175,6 +190,9 @@ public class MemorySearchService {
     private String executeJavaApplicationWithStartupDetection(MemorySearchRequest request) throws IOException, InterruptedException {
         List<String> command = Arrays.asList(
                 "java",
+                "-XX:+IgnoreUnrecognizedVMOptions",
+                "--add-opens=java.base/java.lang=ALL-UNNAMED",
+                "--add-opens=java.logging/java.util.logging=ALL-UNNAMED",
                 "-javaagent:" + DYNAMIC_TRACER_JAR,
                 "-Ddynamictracer.breakpoint.config=" + BREAKPOINT_CONFIG_FULL_PATH,
                 "-Ddynamictracer.breakpoint.enabled=true",
