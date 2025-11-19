@@ -27,14 +27,39 @@ services:
     environment:
       # 告诉 workflow 反编译源码的根目录（容器内路径）
       - JAVA_BASE_DIR=/opt/work/decompiled-with-deps
+      # 指向预分析结果目录
+      - JSON_BASE_DIR=/app/atools/agent/jos_result
     volumes:
       # 共享反编译后的源码（与 codeql-runner 的 /opt/work 对应）
       - ./SAST/codeql-work:/opt/work:ro
       # 如需访问数据库或输出结果，也可以共享这些目录
       - ./SAST/codeql-databases:/opt/databases:ro
       - ./SAST/codeql-output:/opt/codeql-output:ro
+      # Mount DynamicTracer jar
+      - ./DynamicTracer/target/DynamicTracer-1.0-SNAPSHOT.jar:/app/atools/agent/DynamicTracer-1.0-SNAPSHOT.jar
+      # Mount benchmark app
+      - ./benchmark/druid_filter_mem-0.0.1-SNAPSHOT.jar:/app/atools/benchmarks/druid_filter_mem-0.0.1-SNAPSHOT.jar
+      # Mount breakpoint config
+      - ./workflow-integration-hub/atools/agent/config/breakpoint-config.json:/app/atools/agent/config/breakpoint-config.json
+      # Mount results directory
+      - ./jos_result:/app/atools/agent/jos_result
     ports:
       - "7781:7781"
     stdin_open: true
     tty: true
+
+  agent-pre-analyzer:
+    build:
+      context: .
+      dockerfile: scripts/Dockerfile.pre-analysis
+    container_name: showmaker-pre-analyzer
+    volumes:
+      - ./DynamicTracer/target/DynamicTracer-1.0-SNAPSHOT.jar:/app/atools/agent/DynamicTracer-1.0-SNAPSHOT.jar
+      - ./benchmark/druid_filter_mem-0.0.1-SNAPSHOT.jar:/app/atools/benchmarks/druid_filter_mem-0.0.1-SNAPSHOT.jar
+      - ./workflow-integration-hub/atools/agent/config/breakpoint-config.json:/app/atools/agent/config/breakpoint-config.json
+      - ./jos_result:/app/atools/agent/jos_result
+      - ./scripts:/app/scripts
+      - ./SAST/codeql-output:/app/codeql-output
+    ports:
+      - "8080:8080"
 
