@@ -40,23 +40,30 @@ public class DataFileController {
 
     @PostMapping("/read-java-file")
     public ResponseEntity<JavaFileResponse> readJavaFile(@RequestBody JavaFileRequest request) {
+        log.info("收到 /api/read-java-file 请求, body={}", request);
         if (request.getPackageClassName() == null || request.getPackageClassName().trim().isEmpty()) {
             JavaFileResponse response = JavaFileResponse.builder()
-                    .success(false)
-                    .error("packageClassName参数是必需的")
-                    .build();
+                .success(false)
+                .error("packageClassName参数是必需的")
+                .build();
             return ResponseEntity.badRequest().body(response);
         }
 
         JavaFileResponse response = javaFileService.readJavaFile(request);
 
-        if (response.isSuccess()) {
-            return ResponseEntity.ok(response);
-        } else if (response.getSearchedPaths() != null) {
-            return ResponseEntity.notFound().build();
-        } else {
-            return ResponseEntity.badRequest().body(response);
-        }
+        // 为了方便前端和集成工具处理，这里统一返回 200 + JSON，
+        // 即使未找到文件也通过 response.success=false + error 信息来表示。
+        // 原先返回 404 时，n8n 等工具只看到空响应，不利于排查。
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 调试用：功能与 /read-java-file 一致，仅用于排查路由问题
+     */
+    @PostMapping("/read-java-file-debug")
+    public ResponseEntity<JavaFileResponse> readJavaFileDebug(@RequestBody JavaFileRequest request) {
+        log.info("收到 /api/read-java-file-debug 请求, body={}", request);
+        return readJavaFile(request);
     }
 
     @PostMapping("/read-csv-data")
