@@ -15,7 +15,7 @@ workflow:
     # 这里的默认值假设在容器中挂载了 /opt/work，对应 CodeQL 反编译输出根目录
     java-base-dir: ${JAVA_BASE_DIR:/opt/work/decompiled-with-deps}
     csv-base-dir: ${CSV_BASE_DIR:/Users/yulate/data/staticAnalysis/memory-find/dify-memory-shell-plugin/csv-data}
-    json-base-dir: ${JSON_BASE_DIR:/Users/yulate/data/staticAnalysis/memory-find/dify-memory-shell-plugin/json-data}
+    json-base-dir: ${JSON_BASE_DIR:/app/atools/agent/jos_result}
   
   csv:
     default-batch-size: 50
