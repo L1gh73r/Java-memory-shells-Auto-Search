@@ -17,11 +17,19 @@ public class JsonDataRequest {
     @JsonProperty(value = "file_path")
     private String filePathUnderscore;
     
+    @JsonProperty(value = "includeSourceCode")
+    private Boolean includeSourceCode;
+    
     // 获取实际的文件路径，优先使用 filePath，如果为空则使用 file_path
     public String getActualFilePath() {
         if (filePath != null && !filePath.trim().isEmpty()) {
             return filePath;
         }
         return filePathUnderscore;
+    }
+    
+    // 判断是否需要包含源码
+    public boolean shouldIncludeSourceCode() {
+        return includeSourceCode != null && includeSourceCode;
     }
 }
