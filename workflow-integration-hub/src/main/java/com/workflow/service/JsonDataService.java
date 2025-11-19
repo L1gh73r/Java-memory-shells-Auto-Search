@@ -24,9 +24,14 @@ public class JsonDataService {
     private ObjectMapper objectMapper;
 
     public Object readJsonData(JsonDataRequest request) {
+        String jsonBaseDir = config.getData().getJsonBaseDir();
+        log.info("JSON_BASE_DIR配置值: {}", jsonBaseDir);
+        
         try {
             String actualFilePath = request.getActualFilePath();
             String fullPath = resolveFilePath(actualFilePath);
+            log.info("请求路径: {}, 解析后完整路径: {}", actualFilePath, fullPath);
+            
             File file = new File(fullPath);
             if (!file.exists()) {
                 return Map.of(

@@ -96,14 +96,35 @@ public class JavaFileService {
             if (Files.exists(basePath) && Files.isDirectory(basePath)) {
                 String expectedSuffix = packagePath + File.separator + fileName;
 
+                List<String> walked = new ArrayList<>();
+
                 try (Stream<Path> stream = Files.walk(basePath)) {
-                    List<String> walked = stream
+                    walked = stream
                             .filter(Files::isRegularFile)
                             .map(Path::toString)
                             .filter(p -> p.endsWith(expectedSuffix))
                             .collect(Collectors.toList());
-                    candidates.addAll(walked);
                 }
+
+                // 如果严格按包路径没有命中，再退一步，只按文件名匹配（适配一些特殊反编译目录）
+                if (walked.isEmpty()) {
+                    try (Stream<Path> stream = Files.walk(basePath)) {
+                        walked = stream
+                                .filter(Files::isRegularFile)
+                                .filter(p -> p.getFileName().toString().equals(fileName))
+                                .map(Path::toString)
+                                .collect(Collectors.toList());
+                    }
+                }
+
+                if (!walked.isEmpty()) {
+                    log.info("在 baseDir={} 下为 {}.{} 找到 {} 个匹配文件", baseDir, packageName, className, walked.size());
+                    candidates.addAll(walked);
+                } else {
+                    log.info("在 baseDir={} 下未找到 {}.{} 的任何匹配 Java 文件", baseDir, packageName, className);
+                }
+            } else {
+                log.warn("java-base-dir 不存在或不是目录: {}", baseDir);
             }
         } catch (Exception e) {
             log.warn("递归搜索 Java 文件时发生错误，baseDir={}", baseDir, e);
