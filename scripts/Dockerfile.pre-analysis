@@ -1,0 +1,14 @@
+FROM openjdk:17-jdk-slim
+
+# Install Python3 and curl
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends python3 curl && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy the script
+COPY scripts/run_pre_analysis.sh /app/run_pre_analysis.sh
+RUN chmod +x /app/run_pre_analysis.sh
+
+ENTRYPOINT ["/app/run_pre_analysis.sh"]
