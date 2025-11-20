@@ -14,12 +14,10 @@ echo "Starting Pre-Analysis..."
 # Ensure output directory exists
 mkdir -p "$OUTPUT_DIR"
 
-# Start the application with the agent
-echo "Starting Java application..."
-java \
-     -XX:+IgnoreUnrecognizedVMOptions \
-     --add-opens=java.base/java.lang=ALL-UNNAMED \
-     --add-opens=java.logging/java.util.logging=ALL-UNNAMED \
+# Start the application with the agent，优先使用容器内的 JDK8
+echo "Starting Java application (JDK8 if available)..."
+JAVA8_BIN="${JAVA8_HOME:-/usr/lib/jvm/java-8-openjdk-amd64}/bin/java"
+"$JAVA8_BIN" \
      -javaagent:"$AGENT_JAR" \
      -Dctfagent.db.dir="$OUTPUT_DIR" \
      -Dctfagent.csv.path="/app/codeql-output/test2.csv" \

@@ -188,11 +188,14 @@ public class MemorySearchService {
     }
 
     private String executeJavaApplicationWithStartupDetection(MemorySearchRequest request) throws IOException, InterruptedException {
+        // 优先使用容器中安装的 JDK8 来启动被探测的目标 JVM，避免 JOSEarcher 在 JDK17+ 的模块限制问题
+        String java8Home = System.getenv("JAVA8_HOME");
+        String javaBin = (java8Home != null && !java8Home.trim().isEmpty())
+                ? Paths.get(java8Home, "bin", "java").toString()
+                : "java";
+
         List<String> command = Arrays.asList(
-                "java",
-                "-XX:+IgnoreUnrecognizedVMOptions",
-                "--add-opens=java.base/java.lang=ALL-UNNAMED",
-                "--add-opens=java.logging/java.util.logging=ALL-UNNAMED",
+                javaBin,
                 "-javaagent:" + DYNAMIC_TRACER_JAR,
                 "-Ddynamictracer.breakpoint.config=" + BREAKPOINT_CONFIG_FULL_PATH,
                 "-Ddynamictracer.breakpoint.enabled=true",
