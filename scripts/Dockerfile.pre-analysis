@@ -1,14 +1,14 @@
-FROM openjdk:17-jdk-slim
+FROM openjdk:8-jdk-slim
 
-# Install Python3 and curl
+# 安装 Python3 和 curl，用于预分析阶段的健康检查和日志处理
 RUN apt-get update && \
     apt-get install -y --no-install-recommends python3 curl && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy the script
-COPY scripts/run_pre_analysis.sh /app/run_pre_analysis.sh
+# 拷贝预分析脚本（分类到 scripts/pre/ 目录）
+COPY scripts/pre/run_pre_analysis.sh /app/run_pre_analysis.sh
 RUN chmod +x /app/run_pre_analysis.sh
 
 ENTRYPOINT ["/app/run_pre_analysis.sh"]
