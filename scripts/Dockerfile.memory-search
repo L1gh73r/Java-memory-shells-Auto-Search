@@ -1,0 +1,14 @@
+FROM openjdk:8-jdk-slim
+
+WORKDIR /app
+
+# 安装 curl + python3 + procps，用于触发 HTTP 请求、解析 JSON、以及使用 pkill 清理进程
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl python3 procps && \
+    rm -rf /var/lib/apt/lists/*
+
+# 拷贝批量内存搜索脚本（分类到 scripts/memory_search/ 目录）
+COPY scripts/memory_search/run_memory_search_batch.sh /app/run_memory_search_batch.sh
+RUN chmod +x /app/run_memory_search_batch.sh
+
+ENTRYPOINT ["/app/run_memory_search_batch.sh"]
