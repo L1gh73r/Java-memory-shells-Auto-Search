@@ -5,12 +5,14 @@ import com.workflow.dto.CsvDataResponse;
 import com.workflow.dto.JavaFileRequest;
 import com.workflow.dto.JavaFileResponse;
 import com.workflow.dto.JsonDataRequest;
+import com.workflow.dto.PomFileResponse;
 import com.workflow.dto.MemorySearchRequest;
 import com.workflow.dto.MemorySearchResponse;
 import com.workflow.service.CsvDataService;
 import com.workflow.service.JavaFileService;
 import com.workflow.service.JsonDataService;
 import com.workflow.service.MemorySearchService;
+import com.workflow.service.PomFileService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +39,9 @@ public class DataFileController {
 
     @Autowired
     private MemorySearchService memorySearchService;
+
+    @Autowired
+    private PomFileService pomFileService;
 
     @PostMapping("/read-java-file")
     public ResponseEntity<JavaFileResponse> readJavaFile(@RequestBody JavaFileRequest request) {
@@ -128,6 +133,16 @@ public class DataFileController {
                     .build();
             return ResponseEntity.internalServerError().body(errorResponse);
         }
+    }
+
+    /**
+     * 读取反编译结果最外层的 pom.xml 文件内容。
+     * 为了和其他接口保持一致，即使未找到也返回 200 + JSON，由 success 标识是否成功。
+     */
+    @GetMapping("/read-root-pom")
+    public ResponseEntity<PomFileResponse> readRootPom() {
+        PomFileResponse response = pomFileService.readRootPom();
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/doc")

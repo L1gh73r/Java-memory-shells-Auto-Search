@@ -16,6 +16,8 @@ workflow:
     java-base-dir: ${JAVA_BASE_DIR:/opt/work/decompiled-with-deps}
     csv-base-dir: ${CSV_BASE_DIR:/Users/yulate/data/staticAnalysis/memory-find/dify-memory-shell-plugin/csv-data}
     json-base-dir: ${JSON_BASE_DIR:/app/atools/agent/jos_result}
+    # 待分析目标应用 JAR 所在目录（容器内部路径），用于从 JAR 中直接提取 pom.xml
+    jar-input-dir: ${JAR_INPUT_DIR:/app/atools/benchmarks}
   
   csv:
     default-batch-size: 50

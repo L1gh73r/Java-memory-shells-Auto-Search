@@ -35,6 +35,10 @@ public class JsonDataRequest {
     @JsonProperty(value = "memorySearchId")
     private String memorySearchId;
     
+    // 每条记录最大返回多少条 MEMORY_RESULTS（内存搜索结果），默认 10
+    @JsonProperty(value = "memoryResultLimit")
+    private Integer memoryResultLimit;
+    
     // 获取实际的文件路径，优先使用 filePath，如果为空则使用 file_path
     public String getActualFilePath() {
         if (filePath != null && !filePath.trim().isEmpty()) {
@@ -51,5 +55,13 @@ public class JsonDataRequest {
     // 判断是否需要在读取 JSON 之前执行内存搜索
     public boolean shouldRunMemorySearch() {
         return runMemorySearch != null && runMemorySearch;
+    }
+    
+    // 获取内存结果的最大条数，未指定时默认返回前 10 条
+    public int getMemoryResultLimitOrDefault() {
+        if (memoryResultLimit == null || memoryResultLimit <= 0) {
+            return 10;
+        }
+        return memoryResultLimit;
     }
 }

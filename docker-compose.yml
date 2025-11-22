@@ -27,6 +27,8 @@ services:
       - JAVA_BASE_DIR=/opt/work/decompiled-with-deps
       # 指向预分析结果目录
       - JSON_BASE_DIR=/app/atools/agent/jos_result
+      # 容器内待分析目标应用 JAR 所在目录（JAR 文件名可变）
+      - JAR_INPUT_DIR=/app/atools/benchmarks
     volumes:
       # 共享反编译后的源码（与 codeql-runner 的 /opt/work 对应）
       - ./SAST/codeql-work:/opt/work:ro

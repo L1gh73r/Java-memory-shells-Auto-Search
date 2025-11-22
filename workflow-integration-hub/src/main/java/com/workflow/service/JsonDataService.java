@@ -77,7 +77,7 @@ public class JsonDataService {
 
             // 基于映射文件 + JOSE 内存搜索结果，为每条记录添加内存搜索结果
             log.info("开始为 JSON 数据添加内存搜索结果（如有可用）...");
-            jsonData = enrichWithMemoryResults(jsonData);
+            jsonData = enrichWithMemoryResults(jsonData, request);
 
             // 如果执行了内存搜索，则将 JSON 数据与内存搜索结果一起返回，方便前端统一消费
             if (memorySearchResponse != null) {
@@ -222,7 +222,7 @@ public class JsonDataService {
      *   - 对于 JSON 记录中 (CLASS_NAME, METHOD_NAME, OWNER_CLASS) = (targetClass, targetMethod, ownerClass) 的，
      *     读取对应的 resultFile（*.jsonl）中的 MemorySearchResult 列表，挂载到 MEMORY_RESULTS 字段。
      */
-    private JsonNode enrichWithMemoryResults(JsonNode jsonData) {
+    private JsonNode enrichWithMemoryResults(JsonNode jsonData, JsonDataRequest request) {
         if (!jsonData.isArray()) {
             log.warn("JSON 数据不是数组，无法按记录级别添加内存搜索结果");
             return jsonData;
@@ -236,6 +236,7 @@ public class JsonDataService {
 
         ArrayNode arrayNode = (ArrayNode) jsonData;
         int enrichedCount = 0;
+        int limit = request != null ? request.getMemoryResultLimitOrDefault() : 10;
 
         for (JsonNode record : arrayNode) {
             if (!record.isObject()) {
@@ -262,8 +263,11 @@ public class JsonDataService {
             List<MemorySearchResult> results = memoryResultsByKey.get(key);
 
             if (results != null && !results.isEmpty()) {
+                // 根据请求中的 memoryResultLimit 截断结果，默认只返回前 N 条
+                List<MemorySearchResult> limitedResults =
+                        results.size() > limit ? results.subList(0, limit) : results;
                 // 为避免 JsonNode 重复挂载，使用 valueToTree 每次生成新的 ArrayNode
-                ArrayNode resultArray = objectMapper.valueToTree(results);
+                ArrayNode resultArray = objectMapper.valueToTree(limitedResults);
                 objectRecord.set("MEMORY_RESULTS", resultArray);
                 enrichedCount++;
             } else {
