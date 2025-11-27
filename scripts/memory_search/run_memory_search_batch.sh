@@ -22,7 +22,8 @@ set -e
 #   - 与 pre-analysis 容器（只生成 hook logs）职责不同，这里是“按 CSV 驱动的断点 + JOSEarcher 搜索”
 
 # 目标应用与 Agent 配置（通过 docker-compose 卷挂载）
-TARGET_JAR="/app/atools/benchmarks/druid_filter_mem-0.0.1-SNAPSHOT.jar"
+# TARGET_JAR 可通过环境变量注入，默认为示例 JAR
+TARGET_JAR="${TARGET_JAR:-/app/atools/benchmarks/druid_filter_mem-0.0.1-SNAPSHOT.jar}"
 AGENT_JAR="/app/atools/agent/DynamicTracer-1.0-SNAPSHOT.jar"
 
 # 预分析容器输出的 JSON 文件（原始输入，不做修改）

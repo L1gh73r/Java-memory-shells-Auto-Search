@@ -4,18 +4,18 @@ services:
       context: ./SAST
       dockerfile: codeql-runner/Dockerfile
     container_name: showmaker-codeql-runner
-    # 默认示例：分析 benchmark 目录下的 druid_filter_mem Jar，
+    # 默认示例：分析 benchmark 目录下的目标 Jar（由 .env 中的 TARGET_JAR_NAME 决定），
     # 输出结果到项目内的 SAST/codeql-output 目录
-    command: ["/input/druid_filter_mem-0.0.1-SNAPSHOT.jar", "/output"]
+    command: ["/input/${TARGET_JAR_NAME:-druid_filter_mem-0.0.1-SNAPSHOT.jar}", "/output"]
     volumes:
-      # 挂载待分析的 Jar 目录
-      - ./benchmark:/input:ro
-      # 挂载结果输出目录
-      - ./SAST/codeql-output:/output
+      # 挂载待分析的 Jar 目录（统一从 shared/inputs 挂载）
+      - ./shared/inputs/benchmark:/input:ro
+      # 挂载结果输出目录（统一从 shared/outputs 挂载）
+      - ./shared/outputs/codeql-output:/output
       # 持久化 CodeQL 数据库，便于复用
-      - ./SAST/codeql-databases:/opt/databases
+      - ./shared/outputs/codeql-databases:/opt/databases
       # 持久化反编译输出（user-code + dependencies），供 workflow 使用
-      - ./SAST/codeql-work:/opt/work
+      - ./shared/outputs/codeql-work:/opt/work
 
   workflow:
     build:
@@ -29,20 +29,28 @@ services:
       - JSON_BASE_DIR=/app/atools/agent/jos_result
       # 容器内待分析目标应用 JAR 所在目录（JAR 文件名可变）
       - JAR_INPUT_DIR=/app/atools/benchmarks
+      
+      # n8n配置
+      - N8N_HOST=${N8N_HOST:-192.168.215.2}
+      - N8N_PORT=${N8N_PORT:-5678}
+      - N8N_WEBHOOK_PATH=${N8N_WEBHOOK_PATH:-/webhook/fb80a628-9f5e-48e3-9863-775af53004a8}
+      - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL:-}
+      - N8N_WORKFLOW_NAME=${N8N_WORKFLOW_NAME:-showmaker-analysis-workflow}
+      - N8N_WORKFLOW_TIMEOUT=${N8N_WORKFLOW_TIMEOUT:-3600}
     volumes:
       # 共享反编译后的源码（与 codeql-runner 的 /opt/work 对应）
-      - ./SAST/codeql-work:/opt/work:ro
+      - ./shared/outputs/codeql-work:/opt/work:ro
       # 如需访问数据库或输出结果，也可以共享这些目录
-      - ./SAST/codeql-databases:/opt/databases:ro
-      - ./SAST/codeql-output:/opt/codeql-output:ro
-      # Mount DynamicTracer jar
-      - ./DynamicTracer/target/DynamicTracer-1.0-SNAPSHOT.jar:/app/atools/agent/DynamicTracer-1.0-SNAPSHOT.jar
-      # Mount benchmark app
-      - ./benchmark/druid_filter_mem-0.0.1-SNAPSHOT.jar:/app/atools/benchmarks/druid_filter_mem-0.0.1-SNAPSHOT.jar
+      - ./shared/outputs/codeql-databases:/opt/databases:ro
+      - ./shared/outputs/codeql-output:/opt/codeql-output:ro
+      # Mount DynamicTracer jar（统一从 shared/inputs 挂载）
+      - ./shared/inputs/dynamictracer/DynamicTracer-1.0-SNAPSHOT.jar:/app/atools/agent/DynamicTracer-1.0-SNAPSHOT.jar
+      # Mount benchmark app（jar 名由 TARGET_JAR_NAME 控制）
+      - ./shared/inputs/benchmark/${TARGET_JAR_NAME:-druid_filter_mem-0.0.1-SNAPSHOT.jar}:/app/atools/benchmarks/${TARGET_JAR_NAME:-druid_filter_mem-0.0.1-SNAPSHOT.jar}
       # Mount breakpoint config
-      - ./workflow-integration-hub/atools/agent/config/breakpoint-config.json:/app/atools/agent/config/breakpoint-config.json
+      - ./shared/inputs/breakpoint-config/breakpoint-config.json:/app/atools/agent/config/breakpoint-config.json
       # Mount results directory
-      - ./jos_result:/app/atools/agent/jos_result
+      - ./shared/outputs/jos_result:/app/atools/agent/jos_result
     ports:
       - "7781:7781"
     stdin_open: true
@@ -53,13 +61,22 @@ services:
       context: .
       dockerfile: scripts/Dockerfile.pre-analysis
     container_name: showmaker-pre-analyzer
+    environment:
+      # 容器内目标 Jar 路径，供 run_pre_analysis.sh 使用
+      - TARGET_JAR=/app/atools/benchmarks/${TARGET_JAR_NAME:-druid_filter_mem-0.0.1-SNAPSHOT.jar}
     volumes:
-      - ./DynamicTracer/target/DynamicTracer-1.0-SNAPSHOT.jar:/app/atools/agent/DynamicTracer-1.0-SNAPSHOT.jar
-      - ./benchmark/druid_filter_mem-0.0.1-SNAPSHOT.jar:/app/atools/benchmarks/druid_filter_mem-0.0.1-SNAPSHOT.jar
-      - ./workflow-integration-hub/atools/agent/config/breakpoint-config.json:/app/atools/agent/config/breakpoint-config.json
-      - ./jos_result:/app/atools/agent/jos_result
+      # DynamicTracer Agent
+      - ./shared/inputs/dynamictracer/DynamicTracer-1.0-SNAPSHOT.jar:/app/atools/agent/DynamicTracer-1.0-SNAPSHOT.jar
+      # 目标应用 Jar
+      - ./shared/inputs/benchmark/${TARGET_JAR_NAME:-druid_filter_mem-0.0.1-SNAPSHOT.jar}:/app/atools/benchmarks/${TARGET_JAR_NAME:-druid_filter_mem-0.0.1-SNAPSHOT.jar}
+      # 断点配置
+      - ./shared/inputs/breakpoint-config/breakpoint-config.json:/app/atools/agent/config/breakpoint-config.json
+      # JOSEarcher 结果输出目录
+      - ./shared/outputs/jos_result:/app/atools/agent/jos_result
+      # 预分析脚本
       - ./scripts/pre:/app/scripts
-      - ./SAST/codeql-output:/app/codeql-output
+      # CodeQL CSV 输出目录
+      - ./shared/outputs/codeql-output:/app/codeql-output
     ports:
       - "8080:8080"
 
@@ -68,17 +85,34 @@ services:
       context: .
       dockerfile: scripts/Dockerfile.memory-search
     container_name: showmaker-memory-search-runner
+    environment:
+      # 容器内目标 Jar 路径，供 run_memory_search_batch.sh 使用
+      - TARGET_JAR=/app/atools/benchmarks/${TARGET_JAR_NAME:-druid_filter_mem-0.0.1-SNAPSHOT.jar}
     volumes:
       # DynamicTracer Agent
-      - ./DynamicTracer/target/DynamicTracer-1.0-SNAPSHOT.jar:/app/atools/agent/DynamicTracer-1.0-SNAPSHOT.jar
+      - ./shared/inputs/dynamictracer/DynamicTracer-1.0-SNAPSHOT.jar:/app/atools/agent/DynamicTracer-1.0-SNAPSHOT.jar
       # 目标应用 Jar
-      - ./benchmark/druid_filter_mem-0.0.1-SNAPSHOT.jar:/app/atools/benchmarks/druid_filter_mem-0.0.1-SNAPSHOT.jar
+      - ./shared/inputs/benchmark/${TARGET_JAR_NAME:-druid_filter_mem-0.0.1-SNAPSHOT.jar}:/app/atools/benchmarks/${TARGET_JAR_NAME:-druid_filter_mem-0.0.1-SNAPSHOT.jar}
       # 断点配置模板（如果后续需要扩展，这里暂时只用 runtime 配置文件）
-      - ./workflow-integration-hub/atools/agent/config/breakpoint-config.json:/app/atools/agent/config/breakpoint-config.json:ro
+      - ./shared/inputs/breakpoint-config/breakpoint-config.json:/app/atools/agent/config/breakpoint-config.json:ro
       # JOSEarcher 结果输出目录
-      - ./jos_result:/app/atools/agent/jos_result
+      - ./shared/outputs/jos_result:/app/atools/agent/jos_result
       # CodeQL CSV 输出目录
-      - ./SAST/codeql-output:/app/codeql-output:ro
+      - ./shared/outputs/codeql-output:/app/codeql-output:ro
       # 日志输出目录
-      - ./logs:/app/logs
+      - ./shared/outputs/logs:/app/logs
+
+  poc-verifier:
+    build:
+      context: .
+      dockerfile: scripts/Dockerfile.poc-verifier
+    container_name: showmaker-poc-verifier
+    environment:
+      # 传入原始 Jar 名，用于输出重命名（来自 .env 或 showmaker-config.yml）
+      - TARGET_JAR_NAME=${TARGET_JAR_NAME:-druid_filter_mem-0.0.1-SNAPSHOT.jar}
+    volumes:
+      # 挂载反编译结果目录（codeql-runner 已经写入此处）
+      - ./shared/outputs/codeql-work/decompiled-with-deps:/input-decompiled:ro
+      # 编译生成的新 JAR 输出目录
+      - ./shared/outputs/poc-rebuilt-jars:/output
 

@@ -1,0 +1,21 @@
+FROM maven:3.9.9-eclipse-temurin-17
+
+# 在 /app 下进行构建
+WORKDIR /app
+
+# 拷贝构建脚本到容器内
+COPY scripts/poc-verify/build_from_decompiled.sh /usr/local/bin/build_from_decompiled.sh
+RUN chmod +x /usr/local/bin/build_from_decompiled.sh
+
+# 约定：
+# - /input-decompiled: 挂载反编译结果目录（包含 pom.xml、main/、libs/ 等）
+# - /output:          编译生成的新 JAR 输出目录
+ENV DECOMP_INPUT_DIR=/input-decompiled
+ENV OUTPUT_DIR=/output
+
+# TARGET_JAR_NAME 由外部通过环境变量传入（通常来自 .env / showmaker-config.yml）
+
+# 默认入口：从反编译结果构建新的 JAR
+CMD ["build_from_decompiled.sh"]
+
+

@@ -6,7 +6,8 @@
 # - OUTPUT_DIR: JOSEarcher / DynamicTracer 输出结果目录（ctf_hook_logs_*.json 等）
 # - LOG_FILE  : 目标应用标准输出日志，便于排查启动&hook 问题
 # - TRIGGER_URL: 用于触发内存行为的 HTTP 请求地址（例如 /a.css）
-TARGET_JAR="/app/atools/benchmarks/druid_filter_mem-0.0.1-SNAPSHOT.jar"
+#   TARGET_JAR 可通过环境变量注入，默认为示例 JAR
+TARGET_JAR="${TARGET_JAR:-/app/atools/benchmarks/druid_filter_mem-0.0.1-SNAPSHOT.jar}"
 AGENT_JAR="/app/atools/agent/DynamicTracer-1.0-SNAPSHOT.jar"
 OUTPUT_DIR="/app/atools/agent/jos_result"
 LOG_FILE="/app/app.log"

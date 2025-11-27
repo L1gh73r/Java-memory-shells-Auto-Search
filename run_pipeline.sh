@@ -6,12 +6,22 @@ echo "========================================"
 echo "Starting Showmaker Pipeline"
 echo "========================================"
 
-# 1. Clean up previous results
+# 0. 根据根目录 showmaker-config.yml 生成 .env（供 docker-compose 使用）
+if command -v python3 >/dev/null 2>&1; then
+  if [ -f "scripts/config/generate_env_from_config.py" ]; then
+    echo "[0/5] Generating .env from showmaker-config.yml..."
+    python3 scripts/config/generate_env_from_config.py || echo "警告: 生成 .env 失败，将使用默认配置。"
+  fi
+else
+  echo "警告: 未找到 python3，无法从 showmaker-config.yml 生成 .env，将使用默认配置。"
+fi
+
+# 1. Clean up previous results（统一使用 shared 输出目录）
 echo "[1/5] Cleaning up previous results..."
-rm -rf SAST/codeql-output/*
-rm -rf jos_result/*
-mkdir -p SAST/codeql-output
-mkdir -p jos_result
+rm -rf shared/outputs/codeql-output/*
+rm -rf shared/outputs/jos_result/*
+mkdir -p shared/outputs/codeql-output
+mkdir -p shared/outputs/jos_result
 
 # 2. Run CodeQL Analysis
 echo "[2/5] Running CodeQL Analysis..."

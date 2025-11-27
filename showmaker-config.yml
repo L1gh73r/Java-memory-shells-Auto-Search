@@ -1,0 +1,47 @@
+# Showmaker 全局配置文件
+# 用于集中管理目标 JAR、反编译参数、CodeQL 参数等可调控项
+
+target:
+  # 要分析的目标应用 JAR（相对于仓库根目录的路径）
+  # 统一使用 shared/inputs 作为容器共享输入目录
+  jar_path: shared/inputs/benchmark/druid_filter_mem-0.0.1-SNAPSHOT.jar
+
+decompiler:
+  # 反编译线程数（传给 vinefloweboot-jar-decompiler 的 --threads）
+  threads: 8
+
+codeql:
+  # CodeQL 数据库构建模式：source 或 build
+  db_mode: source
+
+  # 要执行的 .ql 查询列表（相对于 SAST 目录）
+  # 为空或缺省时，默认执行 SAST 目录下所有 *.ql
+  queries:
+    - test2.ql
+    - test3.ql
+
+# n8n 工作流配置
+n8n:
+  # n8n 服务器配置
+  server:
+    # n8n 服务器地址（可以是 IP 或域名）
+    host: "192.168.215.2"
+    # n8n 服务器端口
+    port: 5678
+    # n8n webhook 路径（不含基础URL）
+    webhook_path: "/webhook/fb80a628-9f5e-48e3-9863-775af53004a8"
+    # 完整的 webhook URL（如果不设置，将根据 host、port 和 webhook_path 自动生成）
+    webhook_url: ""
+  
+  # 工作流配置
+  workflow:
+    # 工作流名称（用于日志和标识）
+    name: "showmaker-analysis-workflow"
+    # 工作流超时时间（秒）
+    timeout: 3600
+    # 重试次数
+    retry_count: 3
+    # 重试间隔（秒）
+    retry_interval: 30
+
+

@@ -40,16 +40,16 @@ DB_DIR="${DB_ROOT}/${MODE}-${APP_NAME}"
 if [[ -f "${DB_DIR}/codeql-database.yml" ]]; then
   echo "[1/5] 检测到已存在的 CodeQL 数据库: ${DB_DIR}，跳过数据库构建。"
 else
-echo "[1/5] 使用 JavaDecompiler 反编译 JAR（包含依赖）到: ${DECOMP_DIR}"
+echo "[1/5] 使用 JavaDecompiler 反编译 Spring Boot JAR（包含依赖）到: ${DECOMP_DIR}"
 # 注意：/opt/work 是挂载卷的根目录，不能删除整个挂载点，只清理反编译输出子目录
 rm -rf "${DECOMP_DIR}"
 mkdir -p "${DECOMP_DIR}" "${OUTPUT_DIR}"
 
+  DECOMP_THREADS="${DECOMP_THREADS:-8}"
   java -jar /opt/tools/JavaDecompiler.jar \
     --input "${JAR_PATH}" \
     --output "${DECOMP_DIR}" \
-    --threads 8 \
-    --include-deps
+    --threads "${DECOMP_THREADS}"
 
   echo "[2/5] 基于反编译后的 Java 源码创建 CodeQL 数据库: ${DB_DIR}（模式: ${MODE}）"
 
@@ -77,14 +77,25 @@ mkdir -p "${DECOMP_DIR}" "${OUTPUT_DIR}"
   fi
 fi
 
-echo "[3/5] 运行当前包中的所有 .ql 查询，并生成 BQRS 与 CSV"
+echo "[3/5] 运行当前包中的 .ql 查询，并生成 BQRS 与 CSV"
 
 QUERY_ROOT="/opt/sast"
 shopt -s nullglob
-QL_FILES=("${QUERY_ROOT}"/*.ql)
+
+if [[ -n "${CODEQL_QUERIES:-}" ]]; then
+  IFS=',' read -r -a QL_FILES <<< "${CODEQL_QUERIES}"
+  # 相对路径补上 QUERY_ROOT 前缀
+  for i in "${!QL_FILES[@]}"; do
+    if [[ "${QL_FILES[$i]}" != /* ]]; then
+      QL_FILES[$i]="${QUERY_ROOT}/${QL_FILES[$i]}"
+    fi
+  done
+else
+  QL_FILES=("${QUERY_ROOT}"/*.ql)
+fi
 
 if [[ ${#QL_FILES[@]} -eq 0 ]]; then
-  echo "警告: 在 ${QUERY_ROOT} 下未找到任何 .ql 查询文件，跳过分析。" >&2
+  echo "警告: 未找到任何 CodeQL 查询（CODEQL_QUERIES 未设置且 ${QUERY_ROOT} 下无 .ql 文件），跳过分析。" >&2
   exit 0
 fi
 
