@@ -90,7 +90,7 @@ public class BootJarProcessorImpl implements BootJarProcessor {
             FileUtils.ensureDirectory(config.getOutputPath());
             FileUtils.ensureDirectory(config.getWorkspaceDir());
 
-            FileUtils.ensureDirectory(config.getOutputPath().resolve("main"));
+            FileUtils.ensureDirectory(config.getOutputPath().resolve("src/main/java"));
             FileUtils.ensureDirectory(config.getOutputPath().resolve("libs"));
 
             logger.info("工作目录: {}", config.getWorkspaceDir());
@@ -144,7 +144,7 @@ public class BootJarProcessorImpl implements BootJarProcessor {
                 return;
             }
 
-            Path mainOutputDir = config.getOutputPath().resolve("main");
+            Path mainOutputDir = config.getOutputPath().resolve("src/main/java");
 
             logger.info("反编译主应用代码");
             logger.info("主应用代码目录: {}", classesDir);
@@ -225,6 +225,9 @@ public class BootJarProcessorImpl implements BootJarProcessor {
         logger.info("========================================");
     }
 
+    /**
+     * 清理临时目录
+     */
     private void cleanup(BootJarConfig config) {
         if (config.isCleanWorkspace()) {
             try {
