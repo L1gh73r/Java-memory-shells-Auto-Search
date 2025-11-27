@@ -31,6 +31,28 @@ workflow:
       - "java"
       - "."
 
+# n8n集成配置
+n8n:
+  server:
+    # n8n服务器地址（从环境变量获取，默认值用于本地测试）
+    host: ${N8N_HOST:192.168.215.2}
+    # n8n服务器端口
+    port: ${N8N_PORT:5678}
+    # n8n webhook路径
+    webhook_path: ${N8N_WEBHOOK_PATH:/webhook/fb80a628-9f5e-48e3-9863-775af53004a8}
+    # 完整的webhook URL（如果不设置，将根据host、port和webhook_path自动生成）
+    webhook_url: ${N8N_WEBHOOK_URL:}
+  
+  workflow:
+    # 工作流名称
+    name: ${N8N_WORKFLOW_NAME:showmaker-analysis-workflow}
+    # 工作流超时时间（秒）
+    timeout: ${N8N_WORKFLOW_TIMEOUT:3600}
+    # 重试次数
+    retry_count: ${N8N_RETRY_COUNT:3}
+    # 重试间隔（秒）
+    retry_interval: ${N8N_RETRY_INTERVAL:30}
+
 management:
   endpoints:
     web:
