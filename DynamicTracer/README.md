@@ -88,26 +88,3 @@ src/main/java/com/dynamictracer/
     ├── CsvParser.java                # CSV解析器
     └── SpringBootApplicationFinder.java # Spring Boot应用查找器
 ```
-
-## 技术特性
-
-- **Java 8+ 兼容**：支持Java 8及以上版本
-- **字节码操作**：基于Javassist进行字节码修改
-- **高性能存储**：使用H2数据库进行数据持久化
-- **线程安全**：支持多线程环境下的安全Hook
-- **防重入设计**：避免Hook过程中的无限递归
-
-## 开发计划
-
-- [x] 基础Java Agent框架
-- [x] 动态方法Hook功能
-- [x] 对象引用追踪
-- [x] 高性能日志记录
-- [ ] 断点调试功能
-- [ ] Web管理界面
-- [ ] 实时监控面板
-- [ ] 性能分析工具
-
-## 许可证
-
-本项目采用 MIT 许可证。
