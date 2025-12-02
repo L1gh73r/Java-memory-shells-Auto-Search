@@ -25,17 +25,14 @@ public class DefaultTransformer implements ClassFileTransformer {
     private final Map<String, List<MethodHookEntry>> csvHookEntries = new HashMap<>();
     private final Map<String, List<MethodHookEntry>> dynamicParentHooks = new HashMap<>();
 
-    // 全局的DynamicMethodHookRule实例，统一管理进度
     private DynamicMethodHookRule globalHookRule;
     
-    // 断点规则实例
     private BreakpointRule breakpointRule;
 
     public DefaultTransformer() {
-        // 加载CSV配置的hook规则
+        // load csv file
         loadCsvHookRules();
         
-        // 加载断点规则
         loadBreakpointRules();
     }
 
@@ -45,18 +42,16 @@ public class DefaultTransformer implements ClassFileTransformer {
         String dotClassName = className.replace("/", ".");
         try {
 
-            // 如果需要dump原始字节码，则输出到文件
             if (shouldDump(dotClassName)) {
                 saveBytecode(dotClassName, classfileBuffer, "original");
             }
 
-            // 决定是否需要进行拦截，默认不开启拦截，只进行监测
+            // is block action open
             boolean flag = false;
 
-            // 检查黑名单
+            // check black list
             if (Blacklist.CLASS_BLACKLIST.contains(dotClassName) && flag) {
                 System.out.println("Blocked class: " + dotClassName);
-                // 修改字节码，抛出异常
                 ClassPool pool = ClassPool.getDefault();
                 pool.appendClassPath(new javassist.LoaderClassPath(loader));
                 CtClass cc = pool.makeClass(new ByteArrayInputStream(classfileBuffer));
@@ -69,7 +64,6 @@ public class DefaultTransformer implements ClassFileTransformer {
                 return cc.toBytecode();
             }
 
-            // 如果类名匹配传统规则，才进行处理
             if (modifiers.containsKey(dotClassName)) {
 //                System.out.println("doClassName (传统规则): " + dotClassName);
                 ClassPool pool = ClassPool.getDefault();
@@ -84,12 +78,11 @@ public class DefaultTransformer implements ClassFileTransformer {
                 }
             }
 
-            // 检查CSV配置的hook规则
+            // check csv rules
             if (csvHookEntries.containsKey(dotClassName) && globalHookRule != null) {
 //                System.out.println("doClassName (CSV规则): " + dotClassName);
                 byte[] result = globalHookRule.modify(loader, dotClassName, classBeingRedefined, classfileBuffer);
 
-                // 获取需要额外hook的父类
                 Map<String, List<MethodHookEntry>> parentClassesToHook = globalHookRule.getParentClassesToHook();
                 if (parentClassesToHook != null && !parentClassesToHook.isEmpty()) {
 //                    System.out.println("发现需要hook的父类: " + parentClassesToHook.keySet());
@@ -107,7 +100,6 @@ public class DefaultTransformer implements ClassFileTransformer {
                 return globalHookRule.modify(loader, dotClassName, classBeingRedefined, classfileBuffer);
             }
             
-            // 检查断点规则
             if (breakpointRule != null) {
                 byte[] breakpointResult = breakpointRule.modify(loader, dotClassName, classBeingRedefined, classfileBuffer);
                 if (breakpointResult != null && breakpointResult != classfileBuffer) {
@@ -123,16 +115,16 @@ public class DefaultTransformer implements ClassFileTransformer {
     }
 
     /**
-     * 加载CSV配置的hook规则
+     * load csv hook rules
      */
     private void loadCsvHookRules() {
         try {
-            // 获取CSV文件路径，可以通过系统属性或者默认路径
+            // get csv file path
             String csvPath = System.getProperty("ctfagent.csv.path", "data/test2.csv");
 
             System.out.println("尝试加载CSV hook配置文件: " + csvPath);
 
-            // 解析CSV文件
+            // parse csv file
             List<MethodHookEntry> allEntries = CsvParser.parseMethodHookCsv(csvPath);
             System.out.println("成功解析 " + allEntries.size() + " 个hook条目");
 

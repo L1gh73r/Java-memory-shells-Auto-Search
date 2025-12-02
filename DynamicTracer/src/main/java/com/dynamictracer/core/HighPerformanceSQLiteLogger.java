@@ -8,16 +8,7 @@ import java.util.List;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-/**
- * 高性能H2数据库日志记录器
- * 
- * 特点：
- * 1. 异步批量写入，避免阻塞hook执行
- * 2. 内存缓冲区，定期批量刷新到数据库
- * 3. 连接复用和优化配置
- * 4. Bootstrap加载器兼容（纯Java实现）
- * 5. 支持1.5万+hook点的高并发场景
- */
+
 public class HighPerformanceSQLiteLogger {
     
     // 日志文件基础路径（不带扩展名）

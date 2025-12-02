@@ -7,6 +7,6 @@ public class Blacklist {
     public static final List<String> CLASS_BLACKLIST = Arrays.asList(
             "java.util.Scanner",
             "java.lang.ProcessBuilder"
-            // 添加更多黑名单类名
+            // more black list
     );
 }
