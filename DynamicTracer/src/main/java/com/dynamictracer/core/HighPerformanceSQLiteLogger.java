@@ -10,22 +10,22 @@ import java.util.Date;
 
 
 public class HighPerformanceSQLiteLogger {
-    
+
     // 日志文件基础路径（不带扩展名）
     private final String dbPath;
-    
+
     // 异步写入线程池（单线程保证写入顺序）
     private final ExecutorService writeExecutor;
-    
+
     // 内存缓冲区
     private final BlockingQueue<HookLogEntry> logBuffer;
-    
+
     // 批量写入大小（一次写多少条 JSON）
     private static final int BATCH_SIZE = 1000;
-    
+
     // 缓冲区最大大小
     private static final int BUFFER_SIZE = 10000;
-    
+
     // 控制标志
     private final AtomicBoolean isShutdown = new AtomicBoolean(false);
     private final AtomicLong totalRecords = new AtomicLong(0);
@@ -36,7 +36,7 @@ public class HighPerformanceSQLiteLogger {
     private volatile boolean useFallbackLogging = false;
     // 控制 JSON 数组中的逗号
     private volatile boolean firstJsonRecord = true;
-    
+
     /**
      * Hook日志条目
      */
@@ -52,7 +52,7 @@ public class HighPerformanceSQLiteLogger {
         public final String referenceInfo;
         public final String threadName;
         public final long threadId;
-        
+
         public HookLogEntry(String className, String methodName, String methodSignature,
                            String ownerClass, String fieldName, String parameters, String stackTrace) {
             this.timestamp = System.currentTimeMillis();
@@ -67,7 +67,7 @@ public class HighPerformanceSQLiteLogger {
             this.threadName = Thread.currentThread().getName();
             this.threadId = Thread.currentThread().getId();
         }
-        
+
         public HookLogEntry(String className, String methodName, String methodSignature,
                            String ownerClass, String fieldName, String parameters, String stackTrace, String referenceInfo) {
             this.timestamp = System.currentTimeMillis();
@@ -83,7 +83,7 @@ public class HighPerformanceSQLiteLogger {
             this.threadId = Thread.currentThread().getId();
         }
     }
-    
+
     public HighPerformanceSQLiteLogger() {
         // 支持通过系统属性自定义日志目录，默认放在当前工程下的 memory-find/logdata
         // -Dctfagent.db.dir=/absolute/path/to/logdir
@@ -94,26 +94,26 @@ public class HighPerformanceSQLiteLogger {
         this.dbPath = baseDir + "/ctf_hook_logs_" +
             new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
         this.logBuffer = new LinkedBlockingQueue<>(BUFFER_SIZE);
-        
+
         // 创建单线程写入器
         this.writeExecutor = Executors.newSingleThreadExecutor(r -> {
             Thread t = new Thread(r, "CTFAgent-JSON-Writer");
             t.setDaemon(true);
             return t;
         });
-        
+
         // 初始化 JSON 日志文件
         initializeJsonLogging();
-        
+
         // 启动异步写入任务
         startAsyncWriter();
-        
+
         // 注册shutdown hook
         Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
-        
-        System.out.println("🚀 高性能JSON日志记录器已启动，日志路径: " + dbPath + ".json");
+
+        System.out.println("高性能JSON日志记录器已启动，日志路径: " + dbPath + ".json");
     }
-    
+
     /**
      * 初始化 JSON 日志文件（写入开头的 "["）
      */
@@ -124,12 +124,12 @@ public class HighPerformanceSQLiteLogger {
             java.io.File parentDir = logFile.getParentFile();
             if (parentDir != null && !parentDir.exists()) {
                 if (parentDir.mkdirs()) {
-                    System.out.println("✅ 创建日志目录: " + parentDir.getAbsolutePath());
+                    System.out.println("创建日志目录: " + parentDir.getAbsolutePath());
                 } else {
-                    System.err.println("❌ 无法创建日志目录: " + parentDir.getAbsolutePath());
+                    System.err.println("无法创建日志目录: " + parentDir.getAbsolutePath());
                 }
             }
-            
+
             synchronized (fallbackLock) {
                 fallbackFileWriter = new java.io.FileWriter(jsonPath, false); // 覆盖写
                 useFallbackLogging = true;
@@ -137,63 +137,63 @@ public class HighPerformanceSQLiteLogger {
                 fallbackFileWriter.write("[\n");
                 fallbackFileWriter.flush();
             }
-            
-            System.out.println("📝 JSON 日志文件已初始化: " + jsonPath);
+
+            System.out.println("JSON 日志文件已初始化: " + jsonPath);
         } catch (Exception e) {
-            System.err.println("❌ 初始化 JSON 日志文件失败: " + e.getMessage());
+            System.err.println("初始化 JSON 日志文件失败: " + e.getMessage());
             e.printStackTrace();
         }
     }
-    
+
     /**
      * 记录hook日志（异步）
      */
     public void logHook(String className, String methodName, String methodSignature,
                        String ownerClass, String fieldName, String parameters, String stackTrace) {
-        
+
         if (isShutdown.get()) {
             return;
         }
-        
+
         HookLogEntry entry = new HookLogEntry(className, methodName, methodSignature,
                                             ownerClass, fieldName, parameters, stackTrace);
-        
+
         // 尝试添加到缓冲区，如果满了就丢弃（避免内存溢出）
         if (!logBuffer.offer(entry)) {
-            System.err.println("⚠️  日志缓冲区已满，丢弃日志记录: " + className + "." + methodName);
+            System.err.println("日志缓冲区已满，丢弃日志记录: " + className + "." + methodName);
         } else {
             // 成功添加到缓冲区，输出调试信息（仅前几条）
             long currentCount = totalRecords.get() + logBuffer.size();
             if (currentCount <= 10) {
-//                System.out.println("📝 日志已加入缓冲区: " + className + "." + methodName + " (缓冲区大小: " + logBuffer.size() + ")");
+//                System.out.println("日志已加入缓冲区: " + className + "." + methodName + " (缓冲区大小: " + logBuffer.size() + ")");
             }
         }
     }
-    
+
     /**
      * 启动异步写入任务
      */
     private void startAsyncWriter() {
         writeExecutor.submit(() -> {
             List<HookLogEntry> batch = new ArrayList<>(BATCH_SIZE);
-            
+
             while (!isShutdown.get() || !logBuffer.isEmpty()) {
                 try {
                     // 收集批量数据
                     HookLogEntry entry = logBuffer.poll(100, TimeUnit.MILLISECONDS);
                     if (entry != null) {
                         batch.add(entry);
-                        
+
                         // 快速收集更多数据直到批量大小
                         logBuffer.drainTo(batch, BATCH_SIZE - 1);
                     }
-                    
+
                     // 如果有数据则写入
                     if (!batch.isEmpty()) {
                         writeBatch(batch);
                         batch.clear();
                     }
-                    
+
                 } catch (InterruptedException e) {
                     if (!isShutdown.get()) {
                         System.err.println("异步写入线程被中断: " + e.getMessage());
@@ -204,11 +204,11 @@ public class HighPerformanceSQLiteLogger {
                     e.printStackTrace();
                 }
             }
-            
+
             System.out.println("异步写入线程已结束");
         });
     }
-    
+
     /**
      * 批量写入 JSON 日志文件
      */
@@ -315,24 +315,24 @@ public class HighPerformanceSQLiteLogger {
     public String getStatistics() {
         String mode = "JSON文件";
         String path = dbPath + ".json";
-        return String.format("总记录数: %d, 缓冲区大小: %d, 模式: %s, 路径: %s", 
+        return String.format("总记录数: %d, 缓冲区大小: %d, 模式: %s, 路径: %s",
                            totalRecords.get(), logBuffer.size(), mode, path);
     }
-    
+
     /**
      * 关闭日志记录器
      */
     public void shutdown() {
         if (isShutdown.compareAndSet(false, true)) {
-            System.out.println("🔄 正在关闭JSON日志记录器...");
-            
+            System.out.println("正在关闭JSON日志记录器...");
+
             try {
                 // 等待缓冲区数据写完
                 writeExecutor.shutdown();
                 if (!writeExecutor.awaitTermination(10, TimeUnit.SECONDS)) {
                     writeExecutor.shutdownNow();
                 }
-                
+
                 // 关闭 JSON 日志文件（补上结尾的 "]"）
                 synchronized (fallbackLock) {
                     if (fallbackFileWriter != null) {
@@ -345,18 +345,18 @@ public class HighPerformanceSQLiteLogger {
                         }
                     }
                 }
-                
-                System.out.println("✅ 日志记录器已关闭，" + getStatistics());
-                
+
+                System.out.println("日志记录器已关闭，" + getStatistics());
+
             } catch (Exception e) {
                 System.err.println("关闭日志记录器时出错: " + e.getMessage());
             }
         }
     }
-    
+
     // 单例模式
     private static volatile HighPerformanceSQLiteLogger instance;
-    
+
     public static HighPerformanceSQLiteLogger getInstance() {
         if (instance == null) {
             synchronized (HighPerformanceSQLiteLogger.class) {
@@ -408,7 +408,7 @@ public class HighPerformanceSQLiteLogger {
     /**
      * 新增：记录断点日志
      */
-    public void logBreakpoint(String breakpointId, String className, String methodName, 
+    public void logBreakpoint(String breakpointId, String className, String methodName,
                              String breakpointType, String parameters, String stackTrace, String status) {
         // 当前版本默认只对方法 Hook 做 JSON 持久化，断点日志暂不写入文件
         // 如有需要，可以在此处扩展为 JSON 结构，与 Hook 日志共用同一个数组文件
@@ -416,7 +416,7 @@ public class HighPerformanceSQLiteLogger {
             return;
         }
         // 简单打印到控制台，避免静默丢失
-        System.out.println("📌 Breakpoint fired: id=" + breakpointId +
+        System.out.println("Breakpoint fired: id=" + breakpointId +
                 ", class=" + className + ", method=" + methodName +
                 ", type=" + breakpointType + ", status=" + status);
     }

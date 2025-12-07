@@ -59,7 +59,7 @@ public class ObjectReferenceTracker {
             staticReferenceMap.computeIfAbsent(targetType, k -> new ArrayList<>()).add(entry);
         }
 
-        System.out.println("🔗 静态引用映射已初始化，涵盖 " + staticReferenceMap.size() + " 种目标类型");
+        System.out.println("静态引用映射已初始化，涵盖 " + staticReferenceMap.size() + " 种目标类型");
     }
 
     /**
@@ -109,9 +109,9 @@ public class ObjectReferenceTracker {
 
                 if (holderInstance != null) {
                     // 检查该holder对象是否真的持有目标对象
-                    if (holderInstance instanceof StackFrameHolder || 
+                    if (holderInstance instanceof StackFrameHolder ||
                         checkFieldReference(holderInstance, holder.getFieldName(), targetObject)) {
-                        
+
                         String discoveryMethod = holderInstance instanceof StackFrameHolder ? "stack-analysis" : "verified";
                         references.add(new ReferenceInfo(
                                 holder.getOwnerClass(),
@@ -136,37 +136,37 @@ public class ObjectReferenceTracker {
     private static Object findHolderInStackFrames(MethodHookEntry holder, Object targetObject) {
         try {
             StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-            
+
             // 遍历调用堆栈中的每个方法
             for (StackTraceElement element : stackTrace) {
                 String className = element.getClassName();
                 String methodName = element.getMethodName();
-                
+
                 // 跳过我们自己的方法和一些系统方法
-                if (className.startsWith("com.dynamictracer") || 
-                    className.startsWith("java.") || 
+                if (className.startsWith("com.dynamictracer") ||
+                    className.startsWith("java.") ||
                     className.startsWith("sun.")) {
                     continue;
                 }
-                
+
                 // 尝试从这个堆栈帧中寻找holder实例
                 Object holderInstance = analyzeStackFrame(className, methodName, holder, targetObject);
                 if (holderInstance != null) {
                     return holderInstance;
                 }
             }
-            
+
         } catch (Exception e) {
             // 静默处理异常
         }
-        
+
         return null;
     }
-    
+
     /**
      * 分析单个堆栈帧，寻找可能的holder实例
      */
-    private static Object analyzeStackFrame(String className, String methodName, 
+    private static Object analyzeStackFrame(String className, String methodName,
                                           MethodHookEntry holder, Object targetObject) {
         try {
             // 策略1: 如果堆栈帧的类就是holder类，那么这个类的实例可能就是我们要找的holder
@@ -178,33 +178,33 @@ public class ObjectReferenceTracker {
                     return new StackFrameHolder(className, methodName, holder.getFieldName());
                 }
             }
-            
+
             // 策略2: 分析是否为相关的Spring上下文类
             if (isSpringContextClass(className) && holder.getOwnerClass().contains("ApplicationContext")) {
                 if (isValidHolderReference(holder, targetObject)) {
                     return new StackFrameHolder(className, methodName, holder.getFieldName());
                 }
             }
-            
+
         } catch (Exception e) {
             // 静默处理异常
         }
-        
+
         return null;
     }
-    
+
     /**
      * 检查是否为有效的holder引用关系
      */
     private static boolean isValidHolderReference(MethodHookEntry holder, Object targetObject) {
         String expectedType = holder.getFieldTypeName();
         String actualType = targetObject.getClass().getName();
-        
+
         // 精确类型匹配
         if (expectedType.equals(actualType)) {
             return true;
         }
-        
+
         // 检查继承关系
         try {
             Class<?> expectedClass = Class.forName(expectedType);
@@ -213,16 +213,16 @@ public class ObjectReferenceTracker {
             return false;
         }
     }
-    
+
     /**
      * 检查是否为Spring上下文相关类
      */
     private static boolean isSpringContextClass(String className) {
-        return className.contains("ApplicationContext") || 
+        return className.contains("ApplicationContext") ||
                className.contains("BeanFactory") ||
                className.contains("ConfigurableApplicationContext");
     }
-    
+
     /**
      * 堆栈帧持有者标记类
      */
@@ -230,19 +230,19 @@ public class ObjectReferenceTracker {
         private final String className;
         private final String methodName;
         private final String fieldName;
-        
+
         public StackFrameHolder(String className, String methodName, String fieldName) {
             this.className = className;
             this.methodName = methodName;
             this.fieldName = fieldName;
         }
-        
+
         @Override
         public String toString() {
             return "StackFrameHolder{" + className + "." + methodName + " -> field:" + fieldName + "}";
         }
     }
-    
+
 
     /**
      * 第二层：从堆栈信息中查找引用

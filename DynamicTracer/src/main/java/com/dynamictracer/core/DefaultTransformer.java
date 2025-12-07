@@ -26,13 +26,13 @@ public class DefaultTransformer implements ClassFileTransformer {
     private final Map<String, List<MethodHookEntry>> dynamicParentHooks = new HashMap<>();
 
     private DynamicMethodHookRule globalHookRule;
-    
+
     private BreakpointRule breakpointRule;
 
     public DefaultTransformer() {
         // load csv file
         loadCsvHookRules();
-        
+
         loadBreakpointRules();
     }
 
@@ -99,7 +99,7 @@ public class DefaultTransformer implements ClassFileTransformer {
                 dynamicParentHooks.remove(dotClassName);
                 return globalHookRule.modify(loader, dotClassName, classBeingRedefined, classfileBuffer);
             }
-            
+
             if (breakpointRule != null) {
                 byte[] breakpointResult = breakpointRule.modify(loader, dotClassName, classBeingRedefined, classfileBuffer);
                 if (breakpointResult != null && breakpointResult != classfileBuffer) {
@@ -142,7 +142,7 @@ public class DefaultTransformer implements ClassFileTransformer {
             e.printStackTrace();
         }
     }
-    
+
     /**
      * 加载断点规则
      */
@@ -152,21 +152,21 @@ public class DefaultTransformer implements ClassFileTransformer {
             boolean enableBreakpoints = Boolean.parseBoolean(
                 System.getProperty("dynamictracer.breakpoint.enabled", "true")
             );
-            
+
             if (!enableBreakpoints) {
-                System.out.println("⚪ 断点功能已禁用（使用 -Ddynamictracer.breakpoint.enabled=true 启用）");
+                System.out.println("断点功能已禁用（使用 -Ddynamictracer.breakpoint.enabled=true 启用）");
                 return;
             }
-            
-            System.out.println("🎯 正在初始化断点规则...");
-            
+
+            System.out.println("正在初始化断点规则...");
+
             // 创建断点规则实例
             this.breakpointRule = new BreakpointRule();
-            
-            System.out.println("✅ 断点规则初始化完成");
-            
+
+            System.out.println("断点规则初始化完成");
+
         } catch (Exception e) {
-            System.err.println("❌ 加载断点规则失败: " + e.getMessage());
+            System.err.println("加载断点规则失败: " + e.getMessage());
             e.printStackTrace();
             this.breakpointRule = null;
         }

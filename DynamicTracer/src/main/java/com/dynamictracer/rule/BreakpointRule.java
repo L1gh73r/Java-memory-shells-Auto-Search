@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 断点规则 - 支持在指定方法处设置断点并执行自定义代码
- * 
+ *
  * 功能特性：
  * 1. 通过JSON配置文件灵活配置断点
  * 2. 支持方法执行前后断点
@@ -21,24 +21,24 @@ import java.util.concurrent.atomic.AtomicLong;
  * 6. 使用独立的数据库表记录断点日志
  */
 public class BreakpointRule implements ClassModifier {
-    
+
     // 断点配置缓存
     private final Map<String, List<BreakpointConfig>> classBreakpoints = new ConcurrentHashMap<>();
-    
+
     // 代码模板缓存 (预留给未来的JSON配置加载功能)
     @SuppressWarnings("unused")
     private final Map<String, CodeTemplate> codeTemplates = new ConcurrentHashMap<>();
-    
+
     // 断点统计
     private static final AtomicLong breakpointTriggerCount = new AtomicLong(0);
-    
+
     // 配置文件路径
     private final String configFilePath;
-    
+
     // 日志记录器 (暂时保留，未来可能用于更复杂的日志功能)
     @SuppressWarnings("unused")
     private final HighPerformanceSQLiteLogger logger;
-    
+
     // 防重入检查
     private static final ThreadLocal<Boolean> inBreakpoint = new ThreadLocal<Boolean>() {
         @Override
@@ -46,12 +46,12 @@ public class BreakpointRule implements ClassModifier {
             return false;
         }
     };
-    
+
     // 黑名单 - 不应该被断点的类
     private static final Set<String> BLACKLISTED_CLASSES = new HashSet<>(Arrays.asList(
         "java.", "sun.", "javax.", "com.sun.", "javassist.", "com.dynamictracer."
     ));
-    
+
     /**
      * 断点配置模型
      */
@@ -71,10 +71,10 @@ public class BreakpointRule implements ClassModifier {
         private boolean pauseExecution;
         private long pauseDuration;
         private boolean logToDatabase;
-        
+
         // 构造函数
         public BreakpointConfig() {}
-        
+
         public BreakpointConfig(String id, boolean enabled, String targetClass, String targetMethod,
                                String breakpointType, String conditionType, String customCode,
                                boolean pauseExecution, long pauseDuration) {
@@ -89,54 +89,54 @@ public class BreakpointRule implements ClassModifier {
             this.pauseDuration = pauseDuration;
             this.logToDatabase = true;
         }
-        
+
         // Getter和Setter方法
         public String getId() { return id; }
         public void setId(String id) { this.id = id; }
-        
+
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
-        
+
         public String getTargetClass() { return targetClass; }
         public void setTargetClass(String targetClass) { this.targetClass = targetClass; }
-        
+
         public String getTargetMethod() { return targetMethod; }
         public void setTargetMethod(String targetMethod) { this.targetMethod = targetMethod; }
-        
+
         public String getMethodSignature() { return methodSignature; }
         public void setMethodSignature(String methodSignature) { this.methodSignature = methodSignature; }
-        
+
         public String getBreakpointType() { return breakpointType; }
         public void setBreakpointType(String breakpointType) { this.breakpointType = breakpointType; }
-        
+
         public String getConditionType() { return conditionType; }
         public void setConditionType(String conditionType) { this.conditionType = conditionType; }
-        
+
         public String getConditionExpression() { return conditionExpression; }
         public void setConditionExpression(String conditionExpression) { this.conditionExpression = conditionExpression; }
-        
+
         public String getCustomCode() { return customCode; }
         public void setCustomCode(String customCode) { this.customCode = customCode; }
-        
+
         public boolean isPauseExecution() { return pauseExecution; }
         public void setPauseExecution(boolean pauseExecution) { this.pauseExecution = pauseExecution; }
-        
+
         public long getPauseDuration() { return pauseDuration; }
         public void setPauseDuration(long pauseDuration) { this.pauseDuration = pauseDuration; }
-        
+
         public boolean isLogToDatabase() { return logToDatabase; }
         public void setLogToDatabase(boolean logToDatabase) { this.logToDatabase = logToDatabase; }
-        
+
         public String getCodeTemplate() { return codeTemplate; }
         public void setCodeTemplate(String codeTemplate) { this.codeTemplate = codeTemplate; }
-        
+
         public Map<String, String> getCodeParams() { return codeParams; }
         public void setCodeParams(Map<String, String> codeParams) { this.codeParams = codeParams; }
-        
+
         public String getCodeFile() { return codeFile; }
         public void setCodeFile(String codeFile) { this.codeFile = codeFile; }
     }
-    
+
     /**
      * 代码模板类
      */
@@ -144,24 +144,24 @@ public class BreakpointRule implements ClassModifier {
         private String description;
         private List<String> imports;
         private List<String> code;
-        
+
         public CodeTemplate() {}
-        
+
         public CodeTemplate(String description, List<String> imports, List<String> code) {
             this.description = description;
             this.imports = imports;
             this.code = code;
         }
-        
+
         public String getDescription() { return description; }
         public void setDescription(String description) { this.description = description; }
-        
+
         public List<String> getImports() { return imports; }
         public void setImports(List<String> imports) { this.imports = imports; }
-        
+
         public List<String> getCode() { return code; }
         public void setCode(List<String> code) { this.code = code; }
-        
+
         /**
          * 生成最终的Java代码
          */
@@ -169,11 +169,11 @@ public class BreakpointRule implements ClassModifier {
             if (code == null || code.isEmpty()) {
                 return "";
             }
-            
+
             StringBuilder result = new StringBuilder();
             for (String line : code) {
                 String processedLine = line;
-                
+
                 // 替换模板参数
                 if (params != null) {
                     for (Map.Entry<String, String> entry : params.entrySet()) {
@@ -181,19 +181,19 @@ public class BreakpointRule implements ClassModifier {
                         processedLine = processedLine.replace(placeholder, entry.getValue());
                     }
                 }
-                
+
                 // 替换内置变量
                 processedLine = processedLine.replace("{{className}}", className);
                 processedLine = processedLine.replace("{{methodName}}", methodName);
-                
+
                 result.append(processedLine).append("\n");
             }
-            
+
             return result.toString();
         }
     }
-    
-    
+
+
     /**
      * 构造函数
      */
@@ -201,15 +201,15 @@ public class BreakpointRule implements ClassModifier {
         // 获取配置文件路径
         this.configFilePath = System.getProperty("dynamictracer.breakpoint.config", "breakpoint-config.json");
         this.logger = HighPerformanceSQLiteLogger.getInstance();
-        
-        
+
+
         // 加载断点配置
         loadBreakpointConfig();
-        
-        System.out.println("🎯 断点规则已初始化，配置文件: " + configFilePath);
-        System.out.println("📊 已加载 " + getTotalBreakpointCount() + " 个断点配置");
+
+        System.out.println("断点规则已初始化，配置文件: " + configFilePath);
+        System.out.println("已加载 " + getTotalBreakpointCount() + " 个断点配置");
     }
-    
+
     /**
      * 加载断点配置
      */
@@ -217,24 +217,24 @@ public class BreakpointRule implements ClassModifier {
         try {
             // 尝试从JSON文件加载配置
             boolean jsonLoaded = loadBreakpointConfigFromJson();
-            
+
             if (!jsonLoaded) {
-                System.out.println("📋 JSON配置文件未找到，使用示例配置");
+                System.out.println("JSON配置文件未找到，使用示例配置");
                 createSampleBreakpoints();
             }
-            
-            System.out.println("✅ 断点配置加载完成");
-            
+
+            System.out.println("断点配置加载完成");
+
         } catch (Exception e) {
-            System.err.println("❌ 加载断点配置失败: " + e.getMessage());
+            System.err.println("加载断点配置失败: " + e.getMessage());
             e.printStackTrace();
-            
+
             // 降级到示例配置
-            System.out.println("📋 降级到示例配置");
+            System.out.println("降级到示例配置");
             createSampleBreakpoints();
         }
     }
-    
+
     /**
      * 从JSON文件加载断点配置
      */
@@ -245,12 +245,12 @@ public class BreakpointRule implements ClassModifier {
                 // 尝试相对路径
                 configFile = new java.io.File(configFilePath);
                 if (!configFile.exists()) {
-                    System.out.println("⚠️  JSON配置文件未找到: " + configFilePath);
+                    System.out.println("JSON配置文件未找到: " + configFilePath);
                     return false;
                 }
             }
-            
-            System.out.println("📖 读取JSON配置文件: " + configFile.getAbsolutePath());
+
+            System.out.println("读取JSON配置文件: " + configFile.getAbsolutePath());
             // 读取文件内容
             String content;
             java.util.Scanner scanner = new java.util.Scanner(configFile, "UTF-8");
@@ -275,7 +275,7 @@ public class BreakpointRule implements ClassModifier {
             }
 
             if (targetClass == null || targetMethod == null) {
-                System.out.println("⚠️  未在配置中找到 targetClass/targetMethod，将使用示例配置");
+                System.out.println("未在配置中找到 targetClass/targetMethod，将使用示例配置");
                 return false;
             }
 
@@ -297,11 +297,11 @@ public class BreakpointRule implements ClassModifier {
 
             addBreakpointConfig(targetClass, jsonConfig);
 
-            System.out.println("✅ JSON配置加载成功，断点ID: " + jsonConfig.getId());
+            System.out.println("JSON配置加载成功，断点ID: " + jsonConfig.getId());
             return true;
-            
+
         } catch (Exception e) {
-            System.err.println("❌ JSON配置加载失败: " + e.getMessage());
+            System.err.println("JSON配置加载失败: " + e.getMessage());
             return false;
         }
     }
@@ -340,14 +340,14 @@ public class BreakpointRule implements ClassModifier {
         } catch (Exception ignore) {}
         return null;
     }
-    
+
     /**
      * 创建示例断点配置
      */
     private void createSampleBreakpoints() {
         // 示例1: 使用代码模板的断点
         BreakpointConfig templateBreakpoint = new BreakpointConfig(
-            "template_example", true, "org.springframework.context.event.SimpleApplicationEventMulticaster", 
+            "template_example", true, "org.springframework.context.event.SimpleApplicationEventMulticaster",
             "multicastEvent", "BEFORE", "ALWAYS", null, true, 1000
         );
         templateBreakpoint.setCodeTemplate("JOSEARCHER_SEARCH");
@@ -358,14 +358,14 @@ public class BreakpointRule implements ClassModifier {
         params.put("reportPath", "/tmp");
         templateBreakpoint.setCodeParams(params);
         addBreakpointConfig("org.springframework.context.event.SimpleApplicationEventMulticaster", templateBreakpoint);
-        
+
         // 示例2: 简单的自定义代码
         BreakpointConfig simpleBreakpoint = new BreakpointConfig(
             "simple_log", false, ".*Service.*", ".*", "BEFORE", "ALWAYS",
             "System.out.println(\"Service方法调用监控\");", false, 0
         );
         addBreakpointConfig(".*Service.*", simpleBreakpoint);
-        
+
         // 示例3: 内存监控模板
         BreakpointConfig memoryBreakpoint = new BreakpointConfig(
             "memory_monitor", false, ".*", "save.*", "BEFORE", "ALWAYS", null, false, 0
@@ -373,48 +373,48 @@ public class BreakpointRule implements ClassModifier {
         memoryBreakpoint.setCodeTemplate("MEMORY_MONITOR");
         addBreakpointConfig(".*", memoryBreakpoint);
     }
-    
+
     /**
      * 添加断点配置
      */
     private void addBreakpointConfig(String classPattern, BreakpointConfig config) {
         classBreakpoints.computeIfAbsent(classPattern, k -> new ArrayList<>()).add(config);
     }
-    
+
     /**
      * 获取总断点数量
      */
     private int getTotalBreakpointCount() {
         return classBreakpoints.values().stream().mapToInt(List::size).sum();
     }
-    
+
     @Override
     public byte[] modify(ClassLoader loader, String className, Class<?> classBeingRedefined, byte[] classfileBuffer) {
         // 检查黑名单
         if (isBlacklisted(className)) {
             return classfileBuffer;
         }
-        
+
         // 检查是否有匹配的断点配置
         List<BreakpointConfig> matchingBreakpoints = findMatchingBreakpoints(className);
         if (matchingBreakpoints.isEmpty()) {
             // // 调试：输出正在检查的类名
             // if (className.contains("SimpleApplicationEventMulticaster") || className.contains("Application")) {
-            //     System.out.println("🔍 检查类但无匹配断点: " + className);
+            //     System.out.println("检查类但无匹配断点: " + className);
             // }
             return classfileBuffer;
         }
-        
-        // System.out.println("🎯 找到匹配的断点配置，类: " + className + ", 断点数: " + matchingBreakpoints.size());
-        
+
+        // System.out.println("找到匹配的断点配置，类: " + className + ", 断点数: " + matchingBreakpoints.size());
+
         try {
             ClassPool pool = ClassPool.getDefault();
             pool.appendClassPath(new javassist.LoaderClassPath(loader));
             pool.appendClassPath(new javassist.ClassClassPath(BreakpointRule.class));
-            
+
             CtClass cc = pool.makeClass(new ByteArrayInputStream(classfileBuffer));
             boolean modified = false;
-            
+
             // 遍历所有方法，查找需要添加断点的方法
             CtMethod[] methods = cc.getDeclaredMethods();
             for (CtMethod method : methods) {
@@ -422,31 +422,31 @@ public class BreakpointRule implements ClassModifier {
                     if (shouldAddBreakpoint(method, config)) {
                         if (addBreakpointToMethod(method, config)) {
                             modified = true;
-                            System.out.println("🎯 已添加断点 [" + config.getId() + "] 到 " + 
+                            System.out.println("已添加断点 [" + config.getId() + "] 到 " +
                                              className + "." + method.getName());
                         }
                     }
                 }
             }
-            
+
             if (modified) {
                 return cc.toBytecode();
             }
-            
+
         } catch (Exception e) {
             System.err.println("修改类 " + className + " 时出错: " + e.getMessage());
             e.printStackTrace();
         }
-        
+
         return classfileBuffer;
     }
-    
+
     /**
      * 查找匹配的断点配置
      */
     private List<BreakpointConfig> findMatchingBreakpoints(String className) {
         List<BreakpointConfig> matching = new ArrayList<>();
-        
+
         for (Map.Entry<String, List<BreakpointConfig>> entry : classBreakpoints.entrySet()) {
             String classPattern = entry.getKey();
             if (className.matches(classPattern)) {
@@ -457,40 +457,40 @@ public class BreakpointRule implements ClassModifier {
                 }
             }
         }
-        
+
         return matching;
     }
-    
+
     /**
      * 判断是否应该为方法添加断点
      */
     private boolean shouldAddBreakpoint(CtMethod method, BreakpointConfig config) {
         try {
             String methodName = method.getName();
-            
+
             // 检查方法名是否匹配
             if (!methodName.matches(config.getTargetMethod())) {
                 return false;
             }
-            
+
             // 跳过构造函数和静态初始化块
             if ("<init>".equals(methodName) || "<clinit>".equals(methodName)) {
                 return false;
             }
-            
+
             // 跳过native、abstract、final方法
             int modifiers = method.getModifiers();
             if (Modifier.isNative(modifiers) || Modifier.isAbstract(modifiers) || Modifier.isFinal(modifiers)) {
                 return false;
             }
-            
+
             return true;
-            
+
         } catch (Exception e) {
             return false;
         }
     }
-    
+
     /**
      * 为方法添加断点
      */
@@ -499,7 +499,7 @@ public class BreakpointRule implements ClassModifier {
             String className = method.getDeclaringClass().getName();
             String methodName = method.getName();
             String breakpointId = config.getId();
-            
+
             // 根据断点类型添加不同的代码
             if ("BEFORE".equals(config.getBreakpointType())) {
                 // 在方法开始处添加断点
@@ -510,15 +510,15 @@ public class BreakpointRule implements ClassModifier {
                 String afterCode = generateBreakpointCode(breakpointId, className, methodName, "AFTER");
                 method.insertAfter(afterCode);
             }
-            
+
             return true;
-            
+
         } catch (Exception e) {
             System.err.println("为方法添加断点时出错: " + e.getMessage());
             return false;
         }
     }
-    
+
     /**
      * 生成断点代码 - 直接插入用户配置的自定义代码
      */
@@ -528,11 +528,11 @@ public class BreakpointRule implements ClassModifier {
         if (config == null) {
             return generateDefaultBreakpointCode(breakpointId, className, methodName);
         }
-        
+
         StringBuilder code = new StringBuilder();
         code.append("{\n");
         code.append("  try {\n");
-        
+
         // 生成实际的自定义代码
         String customCode = generateActualCustomCode(config, className, methodName);
         if (customCode != null && !customCode.trim().isEmpty()) {
@@ -540,22 +540,22 @@ public class BreakpointRule implements ClassModifier {
             code.append("    ").append(customCode).append("\n");
             code.append("    // 断点 [").append(breakpointId).append("] 自定义代码结束\n");
         }
-        
+
         // 添加暂停逻辑
         if (config.isPauseExecution() && config.getPauseDuration() > 0) {
             code.append("    // 断点暂停执行\n");
             code.append("    Thread.sleep(").append(config.getPauseDuration()).append("L);\n");
         }
-        
+
         code.append("  } catch (Exception e) {\n");
         code.append("    // 静默处理断点异常，不影响原方法执行\n");
         code.append("    System.err.println(\"断点执行出错 [").append(breakpointId).append("]: \" + e.getMessage());\n");
         code.append("  }\n");
         code.append("}\n");
-        
+
         return code.toString();
     }
-    
+
     /**
      * 生成实际的自定义代码
      */
@@ -570,7 +570,7 @@ public class BreakpointRule implements ClassModifier {
         }
         return null;
     }
-    
+
     /**
      * 从模板生成代码（用于直接插入）
      */
@@ -588,7 +588,7 @@ public class BreakpointRule implements ClassModifier {
             String blacklistType = params != null ? params.getOrDefault("blacklistType", "java.io.File") : "java.io.File";
             String maxDepth = params != null ? params.getOrDefault("maxDepth", "20") : "20";
             // 默认保存位置（用户指定，支持系统属性覆盖）
-            String reportPath = System.getProperty("dynamictracer.josearcher.output.path", 
+            String reportPath = System.getProperty("dynamictracer.josearcher.output.path",
                                                  "./jos_result");
 
             return "{ " +
@@ -640,7 +640,7 @@ public class BreakpointRule implements ClassModifier {
             // 动态类注入模板
             String targetClassName = params != null ? params.getOrDefault("targetClassName", "com.pwn.MaliciousClass") : "com.pwn.MaliciousClass";
             String classBase64 = params != null ? params.getOrDefault("classBase64", "") : "";
-            
+
             return "try { " +
                    // 检查类是否已存在
                    "try { " +
@@ -670,7 +670,7 @@ public class BreakpointRule implements ClassModifier {
         }
         return "System.out.println(\"未知模板: " + templateName + "\");";
     }
-    
+
     /**
      * 从文件加载代码
      */
@@ -683,7 +683,7 @@ public class BreakpointRule implements ClassModifier {
                     return "System.out.println(\"代码文件未找到: " + filePath + "\");";
                 }
             }
-            
+
             java.util.Scanner scanner = new java.util.Scanner(file);
             StringBuilder code = new StringBuilder();
             while (scanner.hasNextLine()) {
@@ -698,7 +698,7 @@ public class BreakpointRule implements ClassModifier {
             return "System.err.println(\"加载代码文件失败: " + e.getMessage() + "\");";
         }
     }
-    
+
     /**
      * 根据ID查找断点配置
      */
@@ -712,16 +712,16 @@ public class BreakpointRule implements ClassModifier {
         }
         return null;
     }
-    
+
     /**
      * 生成默认断点代码（兼容性）
      */
     private String generateDefaultBreakpointCode(String breakpointId, String className, String methodName) {
         return "{ " +
-               "  System.out.println(\"🔴 断点触发 [" + breakpointId + "] \" + \"" + className + "." + methodName + "\"); " +
+               "  System.out.println(\"断点触发 [" + breakpointId + "] \" + \"" + className + "." + methodName + "\"); " +
                "}";
     }
-    
+
     /**
      * 检查类是否在黑名单中
      */
@@ -733,7 +733,7 @@ public class BreakpointRule implements ClassModifier {
         }
         return false;
     }
-    
+
     /**
      * 获取断点统计信息
      */
