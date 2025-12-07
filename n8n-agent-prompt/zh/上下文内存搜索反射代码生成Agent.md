@@ -40,13 +40,7 @@
 
 如果：
 
-- `memory_results.searchResults` 为空，或者
-- 有结果但：
-  - 引用链只指向 **临时局部变量 / 当前栈帧特有的短生命周期对象**；
-  - 或者所有路径都依赖 **非公共 / 不可访问的内部类**（例如 `TomcatEmbeddedContext` 这类包可见类）；
-  - 或者在当前 Spring 版本中，`source_code` 已经不再包含你要 Hook 的字段 / 方法（例如字段名变化、方法移除）；
-
-则认定为「内存搜索失败 / 无合适持久存储点」。
+- `memory_results.searchResults` 为空则认定为「内存搜索失败 / 无合适持久存储点」。
 
 在这种情况下：
 
